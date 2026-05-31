@@ -1,0 +1,31 @@
+# Gradle / Android
+.gradle/
+build/
+app/build/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Local machine config
+local.properties
+
+# Python
+server/.venv/
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE / editor
+.idea/
+*.iml
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
