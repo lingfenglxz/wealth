@@ -62,42 +62,21 @@ interface WealthDao {
     @Query("DELETE FROM LotterySettlement WHERE issue = :issue")
     suspend fun deleteSettlementForIssue(issue: String)
 
-    @Query("SELECT * FROM StockSymbol ORDER BY symbol")
-    fun observeSymbols(): Flow<List<StockSymbol>>
+    @Query("SELECT * FROM FootballMatchEntity ORDER BY kickoffTime")
+    fun observeFootballMatches(): Flow<List<FootballMatchEntity>>
 
-    @Query("SELECT * FROM StockSymbol ORDER BY symbol")
-    suspend fun getSymbols(): List<StockSymbol>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertSymbols(symbols: List<StockSymbol>)
-
-    @Query("SELECT * FROM StockCandle WHERE symbol = :symbol ORDER BY date")
-    fun observeCandles(symbol: String): Flow<List<StockCandle>>
-
-    @Query("SELECT * FROM StockCandle WHERE symbol = :symbol ORDER BY date")
-    suspend fun getCandles(symbol: String): List<StockCandle>
-
-    @Query("SELECT * FROM StockCandle ORDER BY symbol, date")
-    suspend fun getAllCandles(): List<StockCandle>
+    @Query("SELECT * FROM FootballMatchEntity ORDER BY kickoffTime")
+    suspend fun getFootballMatches(): List<FootballMatchEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertCandles(candles: List<StockCandle>)
+    suspend fun upsertFootballMatches(matches: List<FootballMatchEntity>)
 
-    @Query("SELECT * FROM StrategyConfig WHERE symbol = :symbol")
-    suspend fun getStrategyConfigs(symbol: String): List<StrategyConfig>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertStrategyConfig(config: StrategyConfig)
-
-    @Query("SELECT * FROM BacktestSnapshot ORDER BY createdAt DESC")
-    fun observeBacktests(): Flow<List<BacktestSnapshot>>
-
-    @Query("SELECT * FROM BacktestSnapshot ORDER BY createdAt DESC LIMIT :limit")
-    suspend fun getBacktests(limit: Int = 20): List<BacktestSnapshot>
+    @Query("SELECT * FROM FootballRecommendationEntity ORDER BY createdAt DESC, confidence DESC")
+    fun observeFootballRecommendations(): Flow<List<FootballRecommendationEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBacktest(snapshot: BacktestSnapshot)
+    suspend fun insertFootballRecommendations(recommendations: List<FootballRecommendationEntity>)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBacktests(snapshots: List<BacktestSnapshot>)
+    @Query("DELETE FROM FootballRecommendationEntity")
+    suspend fun clearFootballRecommendations()
 }

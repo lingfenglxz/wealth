@@ -11,14 +11,17 @@ from statistics import mean
 from typing import Any
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Body, FastAPI, Query
 
 
 app = FastAPI(title="WealthLab Light Server", version="0.2.0")
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 CACHE_FILE = DATA_DIR / "ssq_draws.json"
+FOOTBALL_CACHE_FILE = DATA_DIR / "football_matches.json"
+WORLDCUP_FALLBACK_FILE = DATA_DIR / "worldcup_2026_matches.json"
 CWL_URL = "https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice"
+SPORTTERY_FOOTBALL_URL = "https://webapi.sporttery.cn/gateway/jc/football/getMatchCalculatorV1.qry"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
@@ -51,6 +54,23 @@ class Candidate:
     note: str
     reasons: list[str]
     ballDetails: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class FootballMatch:
+    matchId: str
+    matchNum: str
+    leagueName: str
+    phase: str
+    kickoffTime: str
+    homeTeam: str
+    awayTeam: str
+    neutralVenue: bool
+    handicap: int
+    teamStrength: dict[str, float]
+    pools: dict[str, dict[str, float]]
+    source: str
+    updatedAt: str
 
 
 @app.get("/api/health")
@@ -124,32 +144,45 @@ async def ssq_recommendations(
     }
 
 
-@app.get("/api/market/stocks/{symbol}/daily")
-def stock_daily(
-    symbol: str,
-    startDate: str = Query(default="20180101", min_length=8, max_length=8),
-    endDate: str | None = Query(default=None, min_length=8, max_length=8),
-    adjust: str = Query(default="qfq"),
-    provider: str = Query(default="auto"),
+@app.get("/api/lottery/sports/football/matches")
+async def football_matches(
+    refresh: bool = Query(default=False),
+    limit: int = Query(default=104, ge=1, le=500),
 ) -> dict[str, Any]:
-    try:
-        normalized = normalize_stock_symbol(symbol)
-        resolved_provider, candles = fetch_stock_daily(
-            normalized,
-            startDate,
-            endDate or date.today().strftime("%Y%m%d"),
-            adjust,
-            provider,
-        )
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-    except Exception as error:
-        raise HTTPException(status_code=502, detail=f"failed to load stock data: {error}") from error
+    matches, source_status, source_message = await get_football_matches(refresh)
     return {
-        "source": resolved_provider,
-        "symbol": normalized,
-        "count": len(candles),
-        "candles": candles,
+        "sourceStatus": source_status,
+        "sourceMessage": source_message,
+        "count": min(len(matches), limit),
+        "matches": [asdict(match) for match in matches[:limit]],
+        "supportedPlayTypes": FOOTBALL_PLAY_TYPES,
+    }
+
+
+@app.post("/api/lottery/sports/football/import")
+def import_football_matches(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    matches = parse_football_payload(payload, "manual")
+    if not matches:
+        return {"sourceStatus": "fallback", "sourceMessage": "导入内容没有有效赛事", "count": 0}
+    save_football_cache(matches)
+    return {"sourceStatus": "cache", "sourceMessage": "已导入足球赛事", "count": len(matches)}
+
+
+@app.get("/api/lottery/sports/football/recommendations")
+async def football_recommendations(
+    playType: str = Query(default="all"),
+    refresh: bool = Query(default=False),
+    limit: int = Query(default=12, ge=1, le=50),
+) -> dict[str, Any]:
+    matches, source_status, source_message = await get_football_matches(refresh)
+    requested = normalize_play_types(playType)
+    recommendations = build_football_recommendations(matches, requested, limit)
+    return {
+        "sourceStatus": source_status,
+        "sourceMessage": source_message,
+        "count": len(recommendations),
+        "recommendations": recommendations,
+        "supportedPlayTypes": FOOTBALL_PLAY_TYPES,
     }
 
 
@@ -229,6 +262,291 @@ def load_cache() -> list[SsqDraw]:
 def save_cache(draws: list[SsqDraw]) -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     CACHE_FILE.write_text(json.dumps([asdict(draw) for draw in draws], ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+FOOTBALL_PLAY_TYPES = {
+    "had": "胜平负",
+    "hhad": "让球胜平负",
+    "crs": "比分",
+    "ttg": "总进球",
+    "hafu": "半全场",
+}
+
+
+async def get_football_matches(refresh: bool) -> tuple[list[FootballMatch], str, str]:
+    if refresh:
+        try:
+            official = await fetch_sporttery_football_matches()
+            if official:
+                save_football_cache(official)
+                return official, "official", "官方竞彩数据更新成功"
+        except Exception as error:
+            cached = load_football_cache()
+            if cached:
+                return cached, "cache", f"官方竞彩抓取失败，使用缓存：{short_error(error)}"
+            fallback = load_worldcup_fallback()
+            return fallback, "fallback", f"官方竞彩抓取失败，使用内置世界杯赛程：{short_error(error)}"
+    cached = load_football_cache()
+    if cached:
+        return cached, "cache", "使用本地足球赛事缓存"
+    fallback = load_worldcup_fallback()
+    return fallback, "fallback", "使用内置世界杯赛程"
+
+
+async def fetch_sporttery_football_matches() -> list[FootballMatch]:
+    params = {"poolCode": "hhad,had,crs,ttg,hafu", "channel": "c"}
+    async with httpx.AsyncClient(timeout=12.0, headers=HEADERS, follow_redirects=True) as client:
+        response = await client.get(SPORTTERY_FOOTBALL_URL, params=params)
+        response.raise_for_status()
+        payload = response.json()
+    return parse_sporttery_matches(payload)
+
+
+def load_football_cache() -> list[FootballMatch]:
+    return read_football_file(FOOTBALL_CACHE_FILE, "cache")
+
+
+def load_worldcup_fallback() -> list[FootballMatch]:
+    return read_football_file(WORLDCUP_FALLBACK_FILE, "fallback")
+
+
+def read_football_file(path: Path, source: str) -> list[FootballMatch]:
+    if not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    return parse_football_payload(payload, source)
+
+
+def save_football_cache(matches: list[FootballMatch]) -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    FOOTBALL_CACHE_FILE.write_text(
+        json.dumps({"matches": [asdict(match) for match in matches]}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def parse_football_payload(payload: dict[str, Any], source: str) -> list[FootballMatch]:
+    rows = payload.get("matches") or payload.get("value", {}).get("matches") or []
+    matches = [normalize_football_match(item, source) for item in rows if isinstance(item, dict)]
+    return sorted((match for match in matches if match), key=lambda item: item.kickoffTime)
+
+
+def parse_sporttery_matches(payload: dict[str, Any]) -> list[FootballMatch]:
+    groups = payload.get("value", {}).get("matchInfoList") or []
+    matches: list[FootballMatch] = []
+    for group in groups:
+        business_date = str(group.get("businessDate") or "")
+        for item in group.get("subMatchList") or []:
+            pools = parse_sporttery_odds(item.get("oddsList") or [])
+            if not pools:
+                continue
+            kickoff = str(item.get("matchDate") or item.get("matchTime") or business_date)
+            matches.append(
+                FootballMatch(
+                    matchId=str(item.get("matchId") or f"{business_date}-{item.get('matchNum', '')}"),
+                    matchNum=str(item.get("matchNum") or ""),
+                    leagueName=str(item.get("leagueAbbName") or item.get("leagueName") or "竞彩足球"),
+                    phase=str(item.get("matchRound") or item.get("phase") or "竞彩赛事"),
+                    kickoffTime=kickoff,
+                    homeTeam=str(item.get("homeTeamAllName") or item.get("homeTeamAbbName") or ""),
+                    awayTeam=str(item.get("awayTeamAllName") or item.get("awayTeamAbbName") or ""),
+                    neutralVenue=bool(item.get("neutralVenue") or False),
+                    handicap=safe_int(item.get("goalLine")),
+                    teamStrength=infer_team_strength(str(item.get("homeTeamAllName") or ""), str(item.get("awayTeamAllName") or "")),
+                    pools=pools,
+                    source="official",
+                    updatedAt=date.today().isoformat(),
+                )
+            )
+    return sorted(matches, key=lambda item: item.kickoffTime)
+
+
+def parse_sporttery_odds(rows: list[dict[str, Any]]) -> dict[str, dict[str, float]]:
+    pools: dict[str, dict[str, float]] = {}
+    for row in rows:
+        code = str(row.get("poolCode") or "").lower()
+        if code not in FOOTBALL_PLAY_TYPES:
+            continue
+        if code in {"had", "hhad"}:
+            pools[code] = compact_odds({"H": row.get("h"), "D": row.get("d"), "A": row.get("a")})
+        elif code == "ttg":
+            pools[code] = compact_odds({str(index): row.get(f"s{index}") for index in range(7)} | {"7+": row.get("s7")})
+        elif code == "hafu":
+            pools[code] = compact_odds({key.upper(): row.get(key.lower()) for key in ["HH", "HD", "HA", "DH", "DD", "DA", "AH", "AD", "AA"]})
+        elif code == "crs":
+            pools[code] = compact_odds({key: value for key, value in row.items() if key not in {"poolCode", "goalLine"}})
+    return pools
+
+
+def normalize_football_match(item: dict[str, Any], source: str) -> FootballMatch | None:
+    match_id = str(item.get("matchId") or item.get("id") or "").strip()
+    home = str(item.get("homeTeam") or "").strip()
+    away = str(item.get("awayTeam") or "").strip()
+    kickoff = str(item.get("kickoffTime") or item.get("date") or "").strip()
+    pools = normalize_pools(item.get("pools") or {})
+    if not match_id or not home or not away or not kickoff or not pools:
+        return None
+    strength = item.get("teamStrength") if isinstance(item.get("teamStrength"), dict) else infer_team_strength(home, away)
+    return FootballMatch(
+        matchId=match_id,
+        matchNum=str(item.get("matchNum") or match_id),
+        leagueName=str(item.get("leagueName") or "FIFA World Cup 2026"),
+        phase=str(item.get("phase") or "世界杯"),
+        kickoffTime=kickoff,
+        homeTeam=home,
+        awayTeam=away,
+        neutralVenue=bool(item.get("neutralVenue", True)),
+        handicap=safe_int(item.get("handicap")),
+        teamStrength={"home": float(strength.get("home", 0.5)), "away": float(strength.get("away", 0.5))},
+        pools=pools,
+        source=str(item.get("source") or source),
+        updatedAt=str(item.get("updatedAt") or date.today().isoformat()),
+    )
+
+
+def normalize_pools(raw: dict[str, Any]) -> dict[str, dict[str, float]]:
+    pools: dict[str, dict[str, float]] = {}
+    for key, value in raw.items():
+        code = str(key).lower()
+        if code not in FOOTBALL_PLAY_TYPES or not isinstance(value, dict):
+            continue
+        odds = compact_odds(value)
+        if odds:
+            pools[code] = odds
+    return pools
+
+
+def compact_odds(values: dict[str, Any]) -> dict[str, float]:
+    odds: dict[str, float] = {}
+    for key, value in values.items():
+        number = safe_float(value)
+        if number and number > 1.0:
+            odds[str(key)] = round(number, 4)
+    return odds
+
+
+def build_football_recommendations(matches: list[FootballMatch], play_types: list[str], limit: int) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for match in matches:
+        for play_type in play_types:
+            odds = match.pools.get(play_type)
+            if not odds:
+                continue
+            selection, confidence = select_football_pick(match, play_type, odds)
+            rows.append(
+                {
+                    "matchId": match.matchId,
+                    "matchNum": match.matchNum,
+                    "leagueName": match.leagueName,
+                    "phase": match.phase,
+                    "kickoffTime": match.kickoffTime,
+                    "homeTeam": match.homeTeam,
+                    "awayTeam": match.awayTeam,
+                    "playType": play_type,
+                    "playName": FOOTBALL_PLAY_TYPES[play_type],
+                    "selection": selection,
+                    "odds": odds.get(selection),
+                    "confidence": round(confidence, 4),
+                    "reasons": football_reasons(match, play_type, selection, odds),
+                }
+            )
+    sorted_rows = sorted(rows, key=lambda item: (-item["confidence"], item["kickoffTime"], item["playType"]))
+    selected: list[dict[str, Any]] = []
+    for play_type in play_types:
+        item = next((row for row in sorted_rows if row["playType"] == play_type), None)
+        if item and item not in selected:
+            selected.append(item)
+    for item in sorted_rows:
+        if len(selected) >= limit:
+            break
+        if item not in selected:
+            selected.append(item)
+    return selected[:limit]
+
+
+def select_football_pick(match: FootballMatch, play_type: str, odds: dict[str, float]) -> tuple[str, float]:
+    probabilities = implied_probabilities(odds)
+    strength_bias = match.teamStrength.get("home", 0.5) - match.teamStrength.get("away", 0.5)
+    adjusted = dict(probabilities)
+    if play_type in {"had", "hhad"}:
+        adjusted["H"] = adjusted.get("H", 0.0) + max(strength_bias, 0.0) * 0.12
+        adjusted["A"] = adjusted.get("A", 0.0) + max(-strength_bias, 0.0) * 0.12
+        adjusted["D"] = adjusted.get("D", 0.0) + (0.03 if abs(strength_bias) < 0.08 else 0.0)
+        if play_type == "hhad" and match.handicap:
+            adjusted["H"] = adjusted.get("H", 0.0) - max(match.handicap, 0) * 0.05
+            adjusted["A"] = adjusted.get("A", 0.0) + max(match.handicap, 0) * 0.05
+    elif play_type == "ttg":
+        adjusted = {key: value + (0.02 if key in {"2", "3"} else 0.0) for key, value in adjusted.items()}
+    elif play_type == "hafu":
+        adjusted = {key: value + (0.02 if key in {"HH", "DD", "AA"} else 0.0) for key, value in adjusted.items()}
+    elif play_type == "crs":
+        adjusted = {key: value + (0.02 if key in {"1:0", "1:1", "2:1", "0:1"} else 0.0) for key, value in adjusted.items()}
+    selection, score = max(adjusted.items(), key=lambda item: (item[1], -odds.get(item[0], 999.0)))
+    return selection, min(1.0, max(0.0, score))
+
+
+def implied_probabilities(odds: dict[str, float]) -> dict[str, float]:
+    inverse = {key: 1.0 / value for key, value in odds.items() if value > 1.0}
+    total = sum(inverse.values()) or 1.0
+    return {key: value / total for key, value in inverse.items()}
+
+
+def football_reasons(match: FootballMatch, play_type: str, selection: str, odds: dict[str, float]) -> list[str]:
+    probabilities = implied_probabilities(odds)
+    return [
+        f"{FOOTBALL_PLAY_TYPES[play_type]}选择 {selection}，对应隐含概率约 {probabilities.get(selection, 0.0) * 100:.1f}%。",
+        f"{match.homeTeam} 对 {match.awayTeam}，阶段为{match.phase}，开赛时间 {match.kickoffTime}。",
+        "这是基于公开赔率/赛程字段的实验性推荐，不包含投注、下单或中奖承诺。",
+    ]
+
+
+def normalize_play_types(play_type: str) -> list[str]:
+    if play_type.lower() == "all":
+        return list(FOOTBALL_PLAY_TYPES.keys())
+    values = [item.strip().lower() for item in play_type.split(",") if item.strip()]
+    return [item for item in values if item in FOOTBALL_PLAY_TYPES] or ["had"]
+
+
+def infer_team_strength(home: str, away: str) -> dict[str, float]:
+    ratings = {
+        "Brazil": 0.92,
+        "France": 0.91,
+        "Argentina": 0.90,
+        "England": 0.88,
+        "Spain": 0.87,
+        "Germany": 0.86,
+        "Portugal": 0.85,
+        "Netherlands": 0.84,
+        "Mexico": 0.76,
+        "Canada": 0.70,
+        "United States": 0.74,
+        "South Africa": 0.62,
+        "Morocco": 0.78,
+        "Japan": 0.77,
+    }
+    return {"home": ratings.get(home, 0.68), "away": ratings.get(away, 0.68)}
+
+
+def safe_float(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def safe_int(value: Any) -> int:
+    try:
+        return int(float(str(value).replace("+", "")))
+    except (TypeError, ValueError):
+        return 0
+
+
+def short_error(error: Exception) -> str:
+    message = str(error).strip()
+    return message[:80] if message else error.__class__.__name__
 
 
 def analyze(draws: list[SsqDraw], recent_window: int = 120, model_version: str = "balanced_v2") -> dict[str, Any]:
@@ -694,44 +1012,3 @@ def next_issue(issue: str) -> str:
         return str(int(issue) + 1).zfill(len(issue))
     except ValueError:
         return "next"
-
-
-def normalize_stock_symbol(symbol: str) -> str:
-    digits = "".join(char for char in symbol if char.isdigit())
-    if len(digits) != 6:
-        raise ValueError("symbol must contain a 6-digit A-share code")
-    return digits
-
-
-def fetch_stock_daily_from_akshare(symbol: str, start_date: str, end_date: str, adjust: str) -> list[dict[str, Any]]:
-    try:
-        import akshare as ak
-    except ImportError as error:
-        raise RuntimeError("akshare is not installed on the server") from error
-    frame = ak.stock_zh_a_hist(
-        symbol=symbol,
-        period="daily",
-        start_date=start_date,
-        end_date=end_date,
-        adjust=adjust,
-    )
-    candles: list[dict[str, Any]] = []
-    for _, row in frame.iterrows():
-        candles.append(
-            {
-                "date": str(row["日期"])[:10],
-                "open": float(row["开盘"]),
-                "high": float(row["最高"]),
-                "low": float(row["最低"]),
-                "close": float(row["收盘"]),
-                "volume": float(row["成交量"]),
-            }
-        )
-    return candles
-
-
-def fetch_stock_daily(symbol: str, start_date: str, end_date: str, adjust: str, provider: str) -> tuple[str, list[dict[str, Any]]]:
-    normalized_provider = provider.lower()
-    if normalized_provider in {"auto", "akshare"}:
-        return "akshare", fetch_stock_daily_from_akshare(symbol, start_date, end_date, adjust)
-    raise ValueError(f"unsupported provider: {provider}")

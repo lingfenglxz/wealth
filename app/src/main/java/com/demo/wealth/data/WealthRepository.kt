@@ -3,13 +3,7 @@ package com.demo.wealth.data
 import android.content.Context
 import com.demo.wealth.domain.lottery.LotteryCsvParser
 import com.demo.wealth.domain.lottery.LotteryOfficialParser
-import com.demo.wealth.domain.market.StockCsvParser
-import com.demo.wealth.domain.quant.Backtester
-import com.demo.wealth.domain.quant.BreakoutStrategy
-import com.demo.wealth.domain.quant.MacdTrendStrategy
-import com.demo.wealth.domain.quant.MovingAverageCrossStrategy
-import com.demo.wealth.domain.quant.QuantStrategy
-import com.demo.wealth.domain.quant.RsiReversionStrategy
+import com.demo.wealth.domain.sports.FootballLotteryParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -23,7 +17,6 @@ import java.net.URL
 
 class WealthRepository(context: Context) {
     private val dao = AppDatabase.get(context).wealthDao()
-    private val backtester = Backtester()
 
     val lotteryDraws: Flow<List<LotteryDraw>> = dao.observeLotteryDraws()
     val lotteryPredictions: Flow<List<LotteryPrediction>> = dao.observePredictions()
@@ -31,10 +24,8 @@ class WealthRepository(context: Context) {
     val lotterySettlements: Flow<List<LotterySettlement>> = dao.observeLotterySettlements()
     val lotteryResearchReport: Flow<LotteryResearchReport?> =
         dao.observeLatestResearchSnapshot().map { it?.let(::parseStoredResearchReport) }
-    val stockSymbols: Flow<List<StockSymbol>> = dao.observeSymbols()
-    val backtests: Flow<List<BacktestSnapshot>> = dao.observeBacktests()
-
-    fun observeCandles(symbol: String): Flow<List<StockCandle>> = dao.observeCandles(symbol)
+    val footballMatches: Flow<List<FootballMatchEntity>> = dao.observeFootballMatches()
+    val footballRecommendations: Flow<List<FootballRecommendationEntity>> = dao.observeFootballRecommendations()
 
     suspend fun refreshLotterySettlements() {
         settleResolvedPredictions()
@@ -110,55 +101,33 @@ class WealthRepository(context: Context) {
         return LotteryRecommendationResponse(predictions, report)
     }
 
-    suspend fun importStockCsv(symbol: String, name: String, text: String): Int {
-        val candles = StockCsvParser.parse(symbol, text)
-        if (candles.isNotEmpty()) {
-            dao.upsertSymbols(listOf(StockSymbol(symbol = symbol, name = name.ifBlank { symbol }, lastUpdated = candles.last().date)))
-            dao.upsertCandles(candles)
-        }
-        return candles.size
-    }
-
-    suspend fun updateStockFromHttp(symbol: String, name: String, endpoint: String): Int {
-        val url = endpoint.replace("{symbol}", symbol)
-        val text = fetchText(url)
-        return importStockCsv(symbol, name, text)
-    }
-
-    suspend fun updateStockFromServer(baseUrl: String, symbol: String, name: String): Int {
+    suspend fun updateFootballMatchesFromServer(baseUrl: String, refresh: Boolean = true): Int {
         val normalizedBaseUrl = baseUrl.trim().trimEnd('/')
         if (normalizedBaseUrl.isBlank()) throw IOException("请先填写服务端地址")
-        val text = fetchText("$normalizedBaseUrl/api/market/stocks/$symbol/daily?startDate=20180101&adjust=qfq")
-        val candles = parseServerCandles(symbol, text)
-        if (candles.isEmpty()) throw IOException("服务端未返回股票日线数据")
-        dao.upsertSymbols(listOf(StockSymbol(symbol = symbol, name = name.ifBlank { symbol }, lastUpdated = candles.last().date)))
-        dao.upsertCandles(candles)
-        return candles.size
+        val text = fetchText("$normalizedBaseUrl/api/lottery/sports/football/matches?refresh=$refresh")
+        val matches = FootballLotteryParser.parseMatches(text)
+        if (matches.isEmpty()) throw IOException("服务端未返回足球赛事")
+        dao.upsertFootballMatches(matches)
+        return matches.size
     }
 
-    suspend fun runBacktests(symbol: String): List<BacktestSnapshot> {
-        val candles = dao.getCandles(symbol)
-        val strategies = defaultStrategies()
-        return strategies.map { strategy ->
-            val result = backtester.run(candles, strategy)
-            BacktestSnapshot(
-                symbol = symbol,
-                strategyName = result.strategyName,
-                createdAt = System.currentTimeMillis(),
-                totalReturn = result.totalReturn,
-                maxDrawdown = result.maxDrawdown,
-                winRate = result.winRate,
-                tradeCount = result.tradeCount,
-                equityCurve = result.equityCurve,
-                latestSignal = result.latestSignal.action.name
-            ).also { dao.insertBacktest(it) }
-        }
+    suspend fun importFootballJson(text: String): Int {
+        val matches = FootballLotteryParser.parseMatches(text)
+        if (matches.isNotEmpty()) dao.upsertFootballMatches(matches)
+        return matches.size
     }
 
-    suspend fun runAllStockSignals(): Int {
-        val symbols = dao.getSymbols()
-        symbols.forEach { runBacktests(it.symbol) }
-        return symbols.size
+    suspend fun generateFootballRecommendationsFromServer(baseUrl: String, playType: String = "all"): Int {
+        val normalizedBaseUrl = baseUrl.trim().trimEnd('/')
+        if (normalizedBaseUrl.isBlank()) throw IOException("请先填写服务端地址")
+        val text = fetchText("$normalizedBaseUrl/api/lottery/sports/football/recommendations?playType=$playType")
+        val matches = FootballLotteryParser.parseMatches(text)
+        val recommendations = FootballLotteryParser.parseRecommendations(text)
+        if (matches.isNotEmpty()) dao.upsertFootballMatches(matches)
+        if (recommendations.isEmpty()) throw IOException("服务端未返回足球推荐")
+        dao.clearFootballRecommendations()
+        dao.insertFootballRecommendations(recommendations)
+        return recommendations.size
     }
 
     suspend fun exportBackup(): String {
@@ -215,39 +184,20 @@ class WealthRepository(context: Context) {
                     .put("details", JSONArray(it.detailJson)))
             }
         })
-        root.put("symbols", JSONArray().also { array ->
-            dao.getSymbols().forEach {
+        root.put("footballMatches", JSONArray().also { array ->
+            dao.getFootballMatches().forEach {
                 array.put(JSONObject()
-                    .put("symbol", it.symbol)
-                    .put("name", it.name)
-                    .put("market", it.market)
-                    .put("lastUpdated", it.lastUpdated))
-            }
-        })
-        root.put("candles", JSONArray().also { array ->
-            dao.getAllCandles().forEach {
-                array.put(JSONObject()
-                    .put("symbol", it.symbol)
-                    .put("date", it.date)
-                    .put("open", it.open)
-                    .put("high", it.high)
-                    .put("low", it.low)
-                    .put("close", it.close)
-                    .put("volume", it.volume))
-            }
-        })
-        root.put("backtests", JSONArray().also { array ->
-            dao.getBacktests(1000).forEach {
-                array.put(JSONObject()
-                    .put("symbol", it.symbol)
-                    .put("strategyName", it.strategyName)
-                    .put("createdAt", it.createdAt)
-                    .put("totalReturn", it.totalReturn)
-                    .put("maxDrawdown", it.maxDrawdown)
-                    .put("winRate", it.winRate)
-                    .put("tradeCount", it.tradeCount)
-                    .put("equityCurve", JSONArray(it.equityCurve))
-                    .put("latestSignal", it.latestSignal))
+                    .put("matchId", it.matchId)
+                    .put("matchNum", it.matchNum)
+                    .put("leagueName", it.leagueName)
+                    .put("phase", it.phase)
+                    .put("kickoffTime", it.kickoffTime)
+                    .put("homeTeam", it.homeTeam)
+                    .put("awayTeam", it.awayTeam)
+                    .put("handicap", it.handicap)
+                    .put("pools", JSONObject(it.poolsJson))
+                    .put("source", it.source)
+                    .put("updatedAt", it.updatedAt))
             }
         })
         return root.toString(2)
@@ -302,47 +252,11 @@ class WealthRepository(context: Context) {
                 detailJson = optJSONArray("details")?.toString() ?: "[]"
             )
         })
-        dao.upsertSymbols(root.optJSONArray("symbols").toObjects {
-            StockSymbol(
-                symbol = getString("symbol"),
-                name = getString("name"),
-                market = optString("market", "CN"),
-                lastUpdated = optString("lastUpdated").ifBlank { null }
-            )
-        })
-        dao.upsertCandles(root.optJSONArray("candles").toObjects {
-            StockCandle(
-                symbol = getString("symbol"),
-                date = getString("date"),
-                open = getDouble("open"),
-                high = getDouble("high"),
-                low = getDouble("low"),
-                close = getDouble("close"),
-                volume = optDouble("volume")
-            )
-        })
-        dao.insertBacktests(root.optJSONArray("backtests").toObjects {
-            BacktestSnapshot(
-                symbol = getString("symbol"),
-                strategyName = getString("strategyName"),
-                createdAt = getLong("createdAt"),
-                totalReturn = getDouble("totalReturn"),
-                maxDrawdown = getDouble("maxDrawdown"),
-                winRate = getDouble("winRate"),
-                tradeCount = getInt("tradeCount"),
-                equityCurve = getJSONArray("equityCurve").toDoubles(),
-                latestSignal = getString("latestSignal")
-            )
-        })
+        root.optJSONArray("footballMatches")?.let { matches ->
+            importFootballJson(JSONObject().put("matches", matches).toString())
+        }
         settleResolvedPredictions()
     }
-
-    private fun defaultStrategies(): List<QuantStrategy> = listOf(
-        MovingAverageCrossStrategy(),
-        RsiReversionStrategy(),
-        MacdTrendStrategy(),
-        BreakoutStrategy()
-    )
 
     private fun <T> JSONArray?.toObjects(block: JSONObject.() -> T): List<T> {
         if (this == null) return emptyList()
@@ -351,28 +265,7 @@ class WealthRepository(context: Context) {
 
     private fun JSONArray.toInts(): List<Int> = (0 until length()).map { getInt(it) }
 
-    private fun JSONArray.toDoubles(): List<Double> = (0 until length()).map { getDouble(it) }
-
     private fun JSONArray.toStrings(): List<String> = (0 until length()).map { getString(it) }
-
-    private fun parseServerCandles(symbol: String, text: String): List<StockCandle> {
-        val root = JSONObject(text)
-        val candles = root.optJSONArray("candles") ?: return emptyList()
-        return (0 until candles.length()).mapNotNull { index ->
-            val item = candles.optJSONObject(index) ?: return@mapNotNull null
-            val date = item.optString("date")
-            if (date.isBlank()) return@mapNotNull null
-            StockCandle(
-                symbol = symbol,
-                date = date,
-                open = item.optDouble("open"),
-                high = item.optDouble("high"),
-                low = item.optDouble("low"),
-                close = item.optDouble("close"),
-                volume = item.optDouble("volume")
-            )
-        }.sortedBy { it.date }
-    }
 
     private fun parseServerPredictions(text: String): List<LotteryPrediction> {
         val root = JSONObject(text)

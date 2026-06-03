@@ -55,45 +55,37 @@ data class LotterySettlement(
     val detailJson: String
 )
 
-@Entity(indices = [Index(value = ["symbol"], unique = true)])
-data class StockSymbol(
-    @PrimaryKey val symbol: String,
-    val name: String,
-    val market: String = "CN",
-    val lastUpdated: String? = null
-)
-
-@Entity(primaryKeys = ["symbol", "date"])
-data class StockCandle(
-    val symbol: String,
-    val date: String,
-    val open: Double,
-    val high: Double,
-    val low: Double,
-    val close: Double,
-    val volume: Double
-)
-
-@Entity(primaryKeys = ["symbol", "strategyName"])
-data class StrategyConfig(
-    val symbol: String,
-    val strategyName: String,
-    val enabled: Boolean = true,
-    val initialCash: Double = 100000.0,
-    val feeRate: Double = 0.0003,
-    val slippageRate: Double = 0.0002
+@Entity(indices = [Index(value = ["matchId"], unique = true)])
+data class FootballMatchEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val matchId: String,
+    val matchNum: String,
+    val leagueName: String,
+    val phase: String,
+    val kickoffTime: String,
+    val homeTeam: String,
+    val awayTeam: String,
+    val handicap: Int,
+    val poolsJson: String,
+    val source: String,
+    val updatedAt: String
 )
 
 @Entity
-data class BacktestSnapshot(
+data class FootballRecommendationEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val symbol: String,
-    val strategyName: String,
     val createdAt: Long,
-    val totalReturn: Double,
-    val maxDrawdown: Double,
-    val winRate: Double,
-    val tradeCount: Int,
-    val equityCurve: List<Double>,
-    val latestSignal: String
+    val matchId: String,
+    val matchNum: String,
+    val leagueName: String,
+    val phase: String,
+    val kickoffTime: String,
+    val homeTeam: String,
+    val awayTeam: String,
+    val playType: String,
+    val playName: String,
+    val selection: String,
+    val odds: Double,
+    val confidence: Double,
+    val reasonsJson: String
 )

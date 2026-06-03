@@ -5,23 +5,19 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.demo.wealth.data.BacktestSnapshot
+import com.demo.wealth.data.FootballMatchEntity
+import com.demo.wealth.data.FootballRecommendationEntity
 import com.demo.wealth.data.LotteryDraw
 import com.demo.wealth.data.LotteryPrediction
 import com.demo.wealth.data.LotteryResearchReport
 import com.demo.wealth.data.LotterySettlement
-import com.demo.wealth.data.StockSymbol
 import com.demo.wealth.data.WealthRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalCoroutinesApi::class)
 class WealthViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = WealthRepository(application)
     private val resolver = application.contentResolver
@@ -30,10 +26,9 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
     val predictions: StateFlow<List<LotteryPrediction>> = repository.lotteryPredictions.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val predictionHistory: StateFlow<List<LotteryPrediction>> = repository.lotteryPredictionHistory.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val lotterySettlements: StateFlow<List<LotterySettlement>> = repository.lotterySettlements.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val symbols: StateFlow<List<StockSymbol>> = repository.stockSymbols.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val backtests: StateFlow<List<BacktestSnapshot>> = repository.backtests.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val footballMatches: StateFlow<List<FootballMatchEntity>> = repository.footballMatches.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val footballRecommendations: StateFlow<List<FootballRecommendationEntity>> = repository.footballRecommendations.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val message = MutableStateFlow("准备就绪")
-    val selectedSymbol = MutableStateFlow("")
     private val prefs = application.getSharedPreferences("wealthlab", Context.MODE_PRIVATE)
     val lotteryServerUrl = MutableStateFlow(prefs.getString("lottery_server_url", "") ?: "")
     val compoundRedCount = MutableStateFlow(prefs.getInt("compound_red_count", 9))
@@ -43,9 +38,6 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
     val modelVersion = MutableStateFlow(prefs.getString("lottery_model_version", "balanced_v2") ?: "balanced_v2")
     val researchReport: StateFlow<LotteryResearchReport?> =
         repository.lotteryResearchReport.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-    val selectedCandles = selectedSymbol
-        .flatMapLatest { symbol -> if (symbol.isBlank()) flowOf(emptyList()) else repository.observeCandles(symbol) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         viewModelScope.launch {
@@ -83,49 +75,32 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun importStock(symbol: String, name: String, uri: Uri?) {
-        if (uri == null || symbol.isBlank()) {
-            message.value = "请先填写股票代码"
-            return
-        }
+    fun importFootball(uri: Uri?) {
+        if (uri == null) return
         viewModelScope.launch {
-            val normalized = symbol.trim().uppercase()
-            val count = repository.importStockCsv(normalized, name.trim(), readText(uri))
-            selectedSymbol.value = normalized
-            message.value = "已导入 $normalized 的 $count 条日线"
+            val count = repository.importFootballJson(readText(uri))
+            message.value = "已导入 $count 场足球赛事"
         }
     }
 
-    fun updateStockFromHttp(symbol: String, name: String, endpoint: String) {
-        if (symbol.isBlank() || endpoint.isBlank()) {
-            message.value = "请填写股票代码和CSV地址"
-            return
-        }
+    fun updateFootballFromServer() {
         viewModelScope.launch {
             runCatching {
-                val normalized = symbol.trim().uppercase()
-                val count = repository.updateStockFromHttp(normalized, name.trim(), endpoint.trim())
-                selectedSymbol.value = normalized
-                message.value = "HTTP更新完成：$normalized 共 $count 条"
+                val count = repository.updateFootballMatchesFromServer(lotteryServerUrl.value)
+                message.value = "服务端已更新 $count 场足球赛事"
             }.onFailure {
-                message.value = "HTTP更新失败：${it.message ?: "网络不可用"}"
+                message.value = "足球赛事更新失败：${friendlyError(it)}"
             }
         }
     }
 
-    fun updateStockFromServer(symbol: String, name: String) {
-        if (symbol.isBlank()) {
-            message.value = "请先填写股票代码"
-            return
-        }
+    fun generateFootballRecommendations() {
         viewModelScope.launch {
             runCatching {
-                val normalized = symbol.trim().uppercase()
-                val count = repository.updateStockFromServer(lotteryServerUrl.value, normalized, name.trim())
-                selectedSymbol.value = normalized
-                message.value = "服务端已更新 $normalized 共 $count 条日线"
+                val count = repository.generateFootballRecommendationsFromServer(lotteryServerUrl.value)
+                message.value = "服务端已生成 $count 条足球彩票实验推荐"
             }.onFailure {
-                message.value = "服务端更新失败：${friendlyError(it)}"
+                message.value = "足球推荐失败：${friendlyError(it)}"
             }
         }
     }
@@ -184,19 +159,6 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
         prefs.edit().putString("lottery_model_version", value).apply()
     }
 
-    fun runBacktest(symbol: String) {
-        val target = symbol.ifBlank { selectedSymbol.value }.trim().uppercase()
-        if (target.isBlank()) {
-            message.value = "请先导入或选择股票"
-            return
-        }
-        viewModelScope.launch {
-            val count = repository.runBacktests(target).size
-            selectedSymbol.value = target
-            message.value = "已完成 $target 的 $count 个策略回测"
-        }
-    }
-
     fun exportBackup(uri: Uri?) {
         if (uri == null) return
         viewModelScope.launch {
@@ -216,10 +178,6 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
                 message.value = "恢复失败：${it.message ?: "文件格式错误"}"
             }
         }
-    }
-
-    fun selectSymbol(symbol: String) {
-        selectedSymbol.value = symbol
     }
 
     private fun readText(uri: Uri): String =

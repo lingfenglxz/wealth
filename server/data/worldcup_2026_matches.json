@@ -1,0 +1,67 @@
+{
+  "matches": [
+    {
+      "matchId": "wc2026-001",
+      "matchNum": "001",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "小组赛 A组",
+      "kickoffTime": "2026-06-11T19:00:00-06:00",
+      "homeTeam": "Mexico",
+      "awayTeam": "South Africa",
+      "neutralVenue": false,
+      "handicap": 0,
+      "teamStrength": {"home": 0.76, "away": 0.62},
+      "pools": {
+        "had": {"H": 1.78, "D": 3.30, "A": 4.60},
+        "hhad": {"H": 3.20, "D": 3.25, "A": 1.95},
+        "crs": {"1:0": 6.20, "1:1": 6.00, "2:0": 7.80, "2:1": 7.10, "0:0": 8.50, "0:1": 11.0},
+        "ttg": {"0": 8.80, "1": 3.90, "2": 3.35, "3": 3.85, "4": 6.20, "5": 11.0, "6": 20.0, "7+": 30.0},
+        "hafu": {"HH": 2.85, "HD": 14.0, "HA": 35.0, "DH": 4.50, "DD": 4.60, "DA": 9.50, "AH": 26.0, "AD": 14.0, "AA": 7.80}
+      },
+      "source": "fallback",
+      "updatedAt": "2026-06-03"
+    },
+    {
+      "matchId": "wc2026-002",
+      "matchNum": "002",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "小组赛 C组",
+      "kickoffTime": "2026-06-13T18:00:00-04:00",
+      "homeTeam": "Brazil",
+      "awayTeam": "Morocco",
+      "neutralVenue": true,
+      "handicap": -1,
+      "teamStrength": {"home": 0.92, "away": 0.78},
+      "pools": {
+        "had": {"H": 1.62, "D": 3.65, "A": 5.40},
+        "hhad": {"H": 2.88, "D": 3.45, "A": 2.08},
+        "crs": {"1:0": 6.00, "1:1": 6.80, "2:0": 6.70, "2:1": 7.20, "0:0": 10.0, "0:1": 13.0},
+        "ttg": {"0": 10.0, "1": 4.40, "2": 3.30, "3": 3.60, "4": 5.60, "5": 9.60, "6": 18.0, "7+": 26.0},
+        "hafu": {"HH": 2.45, "HD": 15.0, "HA": 38.0, "DH": 4.20, "DD": 4.90, "DA": 10.5, "AH": 28.0, "AD": 15.0, "AA": 8.80}
+      },
+      "source": "fallback",
+      "updatedAt": "2026-06-03"
+    },
+    {
+      "matchId": "wc2026-003",
+      "matchNum": "003",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "小组赛 L组",
+      "kickoffTime": "2026-06-17T20:00:00-04:00",
+      "homeTeam": "England",
+      "awayTeam": "Croatia",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {"home": 0.88, "away": 0.80},
+      "pools": {
+        "had": {"H": 1.95, "D": 3.18, "A": 3.90},
+        "hhad": {"H": 4.10, "D": 3.40, "A": 1.72},
+        "crs": {"1:0": 6.40, "1:1": 5.70, "2:0": 8.80, "2:1": 7.20, "0:0": 7.60, "0:1": 9.80},
+        "ttg": {"0": 7.60, "1": 3.70, "2": 3.25, "3": 3.95, "4": 6.50, "5": 12.0, "6": 22.0, "7+": 32.0},
+        "hafu": {"HH": 3.10, "HD": 13.5, "HA": 30.0, "DH": 4.80, "DD": 4.20, "DA": 8.60, "AH": 24.0, "AD": 13.0, "AA": 6.80}
+      },
+      "source": "fallback",
+      "updatedAt": "2026-06-03"
+    }
+  ]
+}

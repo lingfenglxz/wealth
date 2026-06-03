@@ -14,12 +14,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         LotteryPrediction::class,
         LotteryResearchSnapshot::class,
         LotterySettlement::class,
-        StockSymbol::class,
-        StockCandle::class,
-        StrategyConfig::class,
-        BacktestSnapshot::class
+        FootballMatchEntity::class,
+        FootballRecommendationEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -72,6 +70,56 @@ abstract class AppDatabase : RoomDatabase() {
                 )
             }
         }
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS `StockSymbol`")
+                db.execSQL("DROP TABLE IF EXISTS `StockCandle`")
+                db.execSQL("DROP TABLE IF EXISTS `StrategyConfig`")
+                db.execSQL("DROP TABLE IF EXISTS `BacktestSnapshot`")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `FootballMatchEntity` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `matchId` TEXT NOT NULL,
+                        `matchNum` TEXT NOT NULL,
+                        `leagueName` TEXT NOT NULL,
+                        `phase` TEXT NOT NULL,
+                        `kickoffTime` TEXT NOT NULL,
+                        `homeTeam` TEXT NOT NULL,
+                        `awayTeam` TEXT NOT NULL,
+                        `handicap` INTEGER NOT NULL,
+                        `poolsJson` TEXT NOT NULL,
+                        `source` TEXT NOT NULL,
+                        `updatedAt` TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_FootballMatchEntity_matchId` ON `FootballMatchEntity` (`matchId`)"
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `FootballRecommendationEntity` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `matchId` TEXT NOT NULL,
+                        `matchNum` TEXT NOT NULL,
+                        `leagueName` TEXT NOT NULL,
+                        `phase` TEXT NOT NULL,
+                        `kickoffTime` TEXT NOT NULL,
+                        `homeTeam` TEXT NOT NULL,
+                        `awayTeam` TEXT NOT NULL,
+                        `playType` TEXT NOT NULL,
+                        `playName` TEXT NOT NULL,
+                        `selection` TEXT NOT NULL,
+                        `odds` REAL NOT NULL,
+                        `confidence` REAL NOT NULL,
+                        `reasonsJson` TEXT NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
 
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
@@ -79,7 +127,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "wealth-lab.db"
-                ).addMigrations(MIGRATION_5_6, MIGRATION_6_7)
+                ).addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { instance = it }

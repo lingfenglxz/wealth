@@ -26,11 +26,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -69,7 +69,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.demo.wealth.data.BacktestSnapshot
+import com.demo.wealth.data.FootballMatchEntity
+import com.demo.wealth.data.FootballRecommendationEntity
 import com.demo.wealth.data.LotteryDraw
 import com.demo.wealth.data.LotteryBallDetail
 import com.demo.wealth.data.LotteryNumberRanking
@@ -77,15 +78,8 @@ import com.demo.wealth.data.LotteryPrediction
 import com.demo.wealth.data.LotteryResearchReport
 import com.demo.wealth.data.LotterySettlement
 import com.demo.wealth.data.LotterySettlementDetail
-import com.demo.wealth.data.StockCandle
-import com.demo.wealth.data.StockSymbol
 import com.demo.wealth.domain.lottery.LotteryRules
-import com.demo.wealth.domain.quant.BreakoutStrategy
-import com.demo.wealth.domain.quant.Indicators
-import com.demo.wealth.domain.quant.MacdTrendStrategy
-import com.demo.wealth.domain.quant.MovingAverageCrossStrategy
-import com.demo.wealth.domain.quant.RsiReversionStrategy
-import com.demo.wealth.domain.quant.SignalAction
+import com.demo.wealth.domain.sports.FootballPlayTypes
 import com.demo.wealth.ui.WealthViewModel
 import kotlin.math.max
 import org.json.JSONArray
@@ -131,19 +125,17 @@ data class TabSpec(val title: String, val icon: ImageVector)
 fun WealthApp(viewModel: WealthViewModel = viewModel()) {
     val tabs = listOf(
         TabSpec("首页", Icons.Default.Home),
-        TabSpec("双色球", Icons.Default.Casino),
-        TabSpec("量化", Icons.Default.BarChart),
+        TabSpec("福彩", Icons.Default.Casino),
+        TabSpec("体彩", Icons.Default.SportsSoccer),
         TabSpec("数据", Icons.Default.Storage)
     )
     var selected by remember { mutableIntStateOf(0) }
     val draws by viewModel.lotteryDraws.collectAsState()
     val predictions by viewModel.predictions.collectAsState()
     val settlements by viewModel.lotterySettlements.collectAsState()
-    val symbols by viewModel.symbols.collectAsState()
-    val backtests by viewModel.backtests.collectAsState()
+    val footballMatches by viewModel.footballMatches.collectAsState()
+    val footballRecommendations by viewModel.footballRecommendations.collectAsState()
     val message by viewModel.message.collectAsState()
-    val selectedSymbol by viewModel.selectedSymbol.collectAsState()
-    val selectedCandles by viewModel.selectedCandles.collectAsState()
     val lotteryServerUrl by viewModel.lotteryServerUrl.collectAsState()
     val compoundRedCount by viewModel.compoundRedCount.collectAsState()
     val compoundBlueCount by viewModel.compoundBlueCount.collectAsState()
@@ -158,7 +150,7 @@ fun WealthApp(viewModel: WealthViewModel = viewModel()) {
                 title = {
                     Column {
                         Text("搞钱", fontWeight = FontWeight.Bold)
-                        Text("彩票实验与量化研究", style = MaterialTheme.typography.labelMedium, color = Color(0xFF61706C))
+                        Text("福彩与体彩实验台", style = MaterialTheme.typography.labelMedium, color = Color(0xFF61706C))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -192,8 +184,8 @@ fun WealthApp(viewModel: WealthViewModel = viewModel()) {
             color = MaterialTheme.colorScheme.background
         ) {
             when (selected) {
-                0 -> HomePage(predictions, settlements, backtests, symbols, message)
-                1 -> LotteryPage(
+                0 -> HomePage(predictions, settlements, footballMatches, message)
+                1 -> WelfareLotteryPage(
                     draws = draws,
                     predictions = predictions,
                     settlements = settlements,
@@ -209,16 +201,20 @@ fun WealthApp(viewModel: WealthViewModel = viewModel()) {
                     onModelVersionChange = viewModel::setModelVersion,
                     onGenerate = viewModel::generateLottery
                 )
-                2 -> QuantPage(symbols, selectedCandles, backtests, selectedSymbol, viewModel::selectSymbol, viewModel::runBacktest)
+                2 -> SportsLotteryPage(
+                    matches = footballMatches,
+                    recommendations = footballRecommendations,
+                    onRefresh = viewModel::updateFootballFromServer,
+                    onGenerate = viewModel::generateFootballRecommendations
+                )
                 3 -> DataPage(
                     viewModel::importLottery,
                     viewModel::updateLotteryFromOfficial,
                     lotteryServerUrl,
                     viewModel::setLotteryServerUrl,
                     viewModel::updateLotteryFromServer,
-                    viewModel::importStock,
-                    viewModel::updateStockFromServer,
-                    viewModel::updateStockFromHttp,
+                    viewModel::importFootball,
+                    viewModel::updateFootballFromServer,
                     viewModel::exportBackup,
                     viewModel::restoreBackup,
                     message
@@ -232,8 +228,7 @@ fun WealthApp(viewModel: WealthViewModel = viewModel()) {
 fun HomePage(
     predictions: List<LotteryPrediction>,
     settlements: List<LotterySettlement>,
-    backtests: List<BacktestSnapshot>,
-    symbols: List<StockSymbol>,
+    footballMatches: List<FootballMatchEntity>,
     message: String
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -244,12 +239,8 @@ fun HomePage(
             PredictionCard(predictions.firstOrNull())
         }
         item {
-            SectionTitle("最近回测")
-            BacktestCard(backtests.firstOrNull())
-        }
-        item {
-            SectionTitle("观察池")
-            MetricRow("股票数", symbols.size.toString(), "回测数", backtests.size.toString())
+            SectionTitle("体彩世界杯")
+            FootballMatchesSummaryCard(footballMatches)
         }
     }
 }
@@ -269,6 +260,156 @@ fun HomeSettlementSummaryCard(settlements: List<LotterySettlement>) {
         MetricRow("已结算期数", settlements.size.toString(), "累计 ROI", percent(totals.third))
         Spacer(Modifier.height(8.dp))
         MetricRow("累计投入", money(totals.first), "奖金", money(totals.second))
+    }
+}
+
+@Composable
+fun FootballMatchesSummaryCard(matches: List<FootballMatchEntity>) {
+    Panel {
+        Text("足球彩票", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(4.dp))
+        if (matches.isEmpty()) {
+            Text("暂无世界杯赛事，请到“数据”页从服务端更新或导入 JSON。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+        } else {
+            val next = matches.first()
+            Text("已准备 ${matches.size} 场赛事", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+            Spacer(Modifier.height(8.dp))
+            Text("${next.homeTeam} vs ${next.awayTeam}", fontWeight = FontWeight.SemiBold)
+            Text("${next.phase} · ${next.kickoffTime}", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+fun WelfareLotteryPage(
+    draws: List<LotteryDraw>,
+    predictions: List<LotteryPrediction>,
+    settlements: List<LotterySettlement>,
+    report: LotteryResearchReport?,
+    compoundRedCount: Int,
+    compoundBlueCount: Int,
+    recentWindow: Int,
+    budgetBets: Int,
+    modelVersion: String,
+    onCompoundChange: (Int, Int) -> Unit,
+    onRecentWindowChange: (Int) -> Unit,
+    onBudgetChange: (Int) -> Unit,
+    onModelVersionChange: (String) -> Unit,
+    onGenerate: (Int, Int) -> Unit
+) {
+    var game by remember { mutableStateOf("ssq") }
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 0.dp)) {
+            ChoiceButton("双色球", selected = game == "ssq") { game = "ssq" }
+        }
+        LotteryPage(
+            draws = draws,
+            predictions = predictions,
+            settlements = settlements,
+            report = report,
+            compoundRedCount = compoundRedCount,
+            compoundBlueCount = compoundBlueCount,
+            recentWindow = recentWindow,
+            budgetBets = budgetBets,
+            modelVersion = modelVersion,
+            onCompoundChange = onCompoundChange,
+            onRecentWindowChange = onRecentWindowChange,
+            onBudgetChange = onBudgetChange,
+            onModelVersionChange = onModelVersionChange,
+            onGenerate = onGenerate
+        )
+    }
+}
+
+@Composable
+fun SportsLotteryPage(
+    matches: List<FootballMatchEntity>,
+    recommendations: List<FootballRecommendationEntity>,
+    onRefresh: () -> Unit,
+    onGenerate: () -> Unit
+) {
+    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item {
+            ActionHeader("足球彩票", "世界杯赛事 ${matches.size} 场 · 竞彩玩法实验", Icons.Default.SportsSoccer, "生成推荐", onGenerate)
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                ChoiceButton("足球彩票", selected = true) {}
+                FilledTonalButton(onClick = onRefresh) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Spacer(Modifier.size(8.dp))
+                    Text("刷新赛事")
+                }
+            }
+        }
+        item { FootballPlayTypeCard() }
+        if (recommendations.isNotEmpty()) {
+            item { SectionTitle("实验推荐") }
+            items(recommendations.take(12), key = { "${it.matchId}-${it.playType}-${it.selection}-${it.createdAt}" }) { item ->
+                FootballRecommendationCard(item)
+            }
+        }
+        item { SectionTitle("世界杯赛事") }
+        if (matches.isEmpty()) {
+            item {
+                Panel {
+                    Text("暂无足球赛事", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("到“数据”页配置服务端地址后更新，或导入服务端格式的世界杯赛事 JSON。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+        items(matches.take(30), key = { it.matchId }) { match ->
+            FootballMatchCard(match)
+        }
+    }
+}
+
+@Composable
+fun FootballPlayTypeCard() {
+    Panel {
+        Text("支持玩法", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+            FootballPlayTypes.allCodes.forEach { code ->
+                MetaPill(FootballPlayTypes.displayName(code), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.tertiary)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text("首版只做赛程、赔率字段和实验性推荐，不做投注单、串关计算或购彩功能。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+fun FootballMatchCard(match: FootballMatchEntity) {
+    Panel {
+        Text("${match.homeTeam} vs ${match.awayTeam}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(4.dp))
+        Text("${match.leagueName} · ${match.phase}", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+        Text("开赛 ${match.kickoffTime} · 让球 ${match.handicap}", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+            FootballPlayTypes.allCodes.filter { match.poolsJson.contains("\"$it\"") }.forEach { code ->
+                MetaPill(FootballPlayTypes.displayName(code), MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
+@Composable
+fun FootballRecommendationCard(item: FootballRecommendationEntity) {
+    Panel {
+        Text("${item.homeTeam} vs ${item.awayTeam}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(4.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            MetaPill(item.playName, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.tertiary)
+            MetaPill(item.selection, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
+        }
+        Spacer(Modifier.height(8.dp))
+        MetricRow("置信分", percent(item.confidence), "参考赔率", if (item.odds > 0.0) "%.2f".format(item.odds) else "-")
+        Spacer(Modifier.height(8.dp))
+        parseStringArray(item.reasonsJson).take(3).forEach { reason ->
+            Text(reason, color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 
@@ -338,129 +479,6 @@ fun LotteryPage(
         }
         items(draws.take(20), key = { it.issue }) { draw ->
             DrawCard(draw)
-        }
-    }
-}
-
-@Composable
-fun QuantPage(
-    symbols: List<StockSymbol>,
-    candles: List<StockCandle>,
-    backtests: List<BacktestSnapshot>,
-    selectedSymbol: String,
-    onSelect: (String) -> Unit,
-    onRun: (String) -> Unit
-) {
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            ActionHeader("A股量化研究", selectedSymbol.ifBlank { "未选择股票" }, Icons.Default.BarChart, "运行回测") {
-                onRun(selectedSymbol)
-            }
-        }
-        if (symbols.isEmpty()) {
-            item {
-                Panel {
-                    Text("暂无股票数据", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("到“数据”页导入日线CSV，或填写CSV地址后用HTTP更新。", color = Color(0xFF61706C))
-                }
-            }
-        }
-        if (candles.isNotEmpty()) {
-            item { StockSnapshotCard(candles) }
-            item { StrategySignalCard(candles) }
-        }
-        items(symbols, key = { it.symbol }) { symbol ->
-            CardRow(
-                title = "${symbol.symbol}  ${symbol.name}",
-                subtitle = "最新数据 ${symbol.lastUpdated ?: "-"}",
-                selected = symbol.symbol == selectedSymbol,
-                onClick = { onSelect(symbol.symbol) }
-            )
-        }
-        items(
-            backtests.filter { selectedSymbol.isBlank() || it.symbol == selectedSymbol },
-            key = { "${it.symbol}-${it.strategyName}-${it.createdAt}" }
-        ) { snapshot ->
-            BacktestCard(snapshot)
-        }
-    }
-}
-
-@Composable
-fun StockSnapshotCard(candles: List<StockCandle>) {
-    val latest = candles.last()
-    val previous = candles.getOrNull(candles.lastIndex - 1)
-    val dayChange = previous?.let { (latest.close - it.close) / it.close } ?: 0.0
-    val ma5 = Indicators.ma(candles, 5).lastOrNull()?.value
-    val ma20 = Indicators.ma(candles, 20).lastOrNull()?.value
-    val rsi14 = Indicators.rsi(candles).lastOrNull()?.value
-    val macd = Indicators.macd(candles).lastOrNull()
-
-    Panel {
-        Text("市场快照", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("%.2f".format(latest.close), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            MetaPill(
-                "${if (dayChange >= 0) "+" else ""}${percent(dayChange)}",
-                if (dayChange >= 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
-                if (dayChange >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
-            )
-        }
-        Text("最新交易日 ${latest.date}", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
-        Spacer(Modifier.height(10.dp))
-        MetricRow("MA5", ma5?.let { "%.2f".format(it) } ?: "-", "MA20", ma20?.let { "%.2f".format(it) } ?: "-")
-        Spacer(Modifier.height(8.dp))
-        MetricRow("RSI14", rsi14?.let { "%.2f".format(it) } ?: "-", "MACD柱", macd?.histogram?.let { "%.3f".format(it) } ?: "-")
-    }
-}
-
-@Composable
-fun StrategySignalCard(candles: List<StockCandle>) {
-    val strategies = listOf(
-        MovingAverageCrossStrategy(),
-        RsiReversionStrategy(),
-        MacdTrendStrategy(),
-        BreakoutStrategy()
-    )
-    Panel {
-        Text("当前策略信号", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        strategies.forEachIndexed { index, strategy ->
-            val signal = strategy.signals(candles).lastOrNull()
-            val action = signal?.action ?: SignalAction.HOLD
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(strategy.name, fontWeight = FontWeight.SemiBold)
-                    Text(signal?.reason ?: "暂无信号", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
-                }
-                MetaPill(
-                    when (action) {
-                        SignalAction.BUY -> "买入"
-                        SignalAction.SELL -> "卖出"
-                        SignalAction.HOLD -> "观望"
-                    },
-                    when (action) {
-                        SignalAction.BUY -> MaterialTheme.colorScheme.primaryContainer
-                        SignalAction.SELL -> MaterialTheme.colorScheme.secondaryContainer
-                        SignalAction.HOLD -> MaterialTheme.colorScheme.surfaceVariant
-                    },
-                    when (action) {
-                        SignalAction.BUY -> MaterialTheme.colorScheme.primary
-                        SignalAction.SELL -> MaterialTheme.colorScheme.secondary
-                        SignalAction.HOLD -> Color(0xFF59646A)
-                    }
-                )
-            }
-            if (index < strategies.lastIndex) {
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-                Spacer(Modifier.height(8.dp))
-            }
         }
     }
 }
@@ -578,21 +596,17 @@ fun DataPage(
     lotteryServerUrl: String,
     onLotteryServerUrlChange: (String) -> Unit,
     onLotteryServerUpdate: () -> Unit,
-    onStockImport: (String, String, android.net.Uri?) -> Unit,
-    onStockServerUpdate: (String, String) -> Unit,
-    onStockHttpUpdate: (String, String, String) -> Unit,
+    onFootballImport: (android.net.Uri?) -> Unit,
+    onFootballServerUpdate: () -> Unit,
     onBackupExport: (android.net.Uri?) -> Unit,
     onBackupRestore: (android.net.Uri?) -> Unit,
     message: String
 ) {
-    var stockSymbol by remember { mutableStateOf("") }
-    var stockName by remember { mutableStateOf("") }
-    var stockEndpoint by remember { mutableStateOf("") }
     val lotteryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {
         onLotteryImport(it)
     }
-    val stockLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {
-        onStockImport(stockSymbol, stockName, it)
+    val footballLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {
+        onFootballImport(it)
     }
     val backupExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) {
         onBackupExport(it)
@@ -641,49 +655,20 @@ fun DataPage(
         }
         item {
             Panel {
-                Text("A股日线数据", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("体彩足球数据", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(6.dp))
-                Text("常用路径优先走服务端更新；CSV 和自定义 HTTP 仅作为备用导入方式。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = stockSymbol,
-                    onValueChange = { stockSymbol = it },
-                    label = { Text("股票代码") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = stockName,
-                    onValueChange = { stockName = it },
-                    label = { Text("名称") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = stockEndpoint,
-                    onValueChange = { stockEndpoint = it },
-                    label = { Text("CSV地址") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Text("优先走轻服务端官方抓取；若被拦截，服务端会使用缓存或内置世界杯赛程。也可以导入服务端格式 JSON。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    Button(onClick = { onStockServerUpdate(stockSymbol, stockName) }) {
+                    Button(onClick = onFootballServerUpdate) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(Modifier.size(8.dp))
                         Text("服务端更新")
                     }
-                    Button(onClick = { stockLauncher.launch(arrayOf("text/*", "text/comma-separated-values", "application/octet-stream")) }) {
+                    Button(onClick = { footballLauncher.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }) {
                         Icon(Icons.Default.CloudUpload, contentDescription = null)
                         Spacer(Modifier.size(8.dp))
-                        Text("导入CSV")
-                    }
-                    FilledTonalButton(onClick = { onStockHttpUpdate(stockSymbol, stockName, stockEndpoint) }) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null)
-                        Spacer(Modifier.size(8.dp))
-                        Text("自定义HTTP")
+                        Text("导入JSON")
                     }
                 }
             }
@@ -841,11 +826,11 @@ fun BallDetailRow(detail: LotteryBallDetail) {
 @Composable
 fun LotteryBacktestCard(report: com.demo.wealth.data.LotteryBacktestReport) {
     Panel {
-        Text("模型滚动回测", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("模型历史验证", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(4.dp))
         Text("使用历史开奖做近 ${report.issueCount} 期模拟，不等于真实推荐次数。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(8.dp))
-        MetricRow("回测期数", report.issueCount.toString(), "平均最佳红球", "%.2f".format(report.averageBestRedHits))
+        MetricRow("验证期数", report.issueCount.toString(), "平均最佳红球", "%.2f".format(report.averageBestRedHits))
         Spacer(Modifier.height(8.dp))
         MetricRow("蓝球命中率", percent(report.blueHitRate), "至少3红", percent(report.atLeastThreeRedRate))
     }
@@ -1144,48 +1129,6 @@ fun Ball(text: String, color: Color) {
 }
 
 @Composable
-fun BacktestCard(snapshot: BacktestSnapshot?) {
-    Panel {
-        if (snapshot == null) {
-            Text("暂无回测", style = MaterialTheme.typography.bodyLarge)
-        } else {
-            Text("${snapshot.symbol} · ${snapshot.strategyName}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(8.dp))
-            EquityCurve(snapshot.equityCurve)
-            Spacer(Modifier.height(8.dp))
-            MetricRow(
-                "收益", percent(snapshot.totalReturn),
-                "回撤", percent(snapshot.maxDrawdown)
-            )
-            MetricRow(
-                "胜率", percent(snapshot.winRate),
-                "信号", snapshot.latestSignal
-            )
-        }
-    }
-}
-
-@Composable
-fun EquityCurve(values: List<Double>) {
-    val line = Color(0xFF14745D)
-    Canvas(modifier = Modifier.fillMaxWidth().height(84.dp)) {
-        if (values.size < 2) return@Canvas
-        val min = values.minOrNull() ?: return@Canvas
-        val maxValue = values.maxOrNull() ?: return@Canvas
-        val range = max(1.0, maxValue - min)
-        val step = size.width / (values.size - 1)
-        val path = Path()
-        values.forEachIndexed { index, value ->
-            val x = index * step
-            val y = size.height - ((value - min) / range * size.height).toFloat()
-            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        drawLine(Color(0xFFE2E8E5), Offset(0f, size.height), Offset(size.width, size.height), strokeWidth = 2f)
-        drawPath(path, line, style = Stroke(width = 4f, cap = StrokeCap.Round))
-    }
-}
-
-@Composable
 fun MetricRow(leftLabel: String, leftValue: String, rightLabel: String, rightValue: String) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
         Metric(leftLabel, leftValue, Modifier.weight(1f))
@@ -1307,6 +1250,12 @@ fun parseBallDetails(text: String): List<LotteryBallDetail> {
             }.orEmpty()
         )
     }
+}
+
+fun parseStringArray(text: String): List<String> {
+    if (text.isBlank()) return emptyList()
+    val array = runCatching { JSONArray(text) }.getOrNull() ?: return emptyList()
+    return (0 until array.length()).mapNotNull { index -> array.optString(index).takeIf { it.isNotBlank() } }
 }
 
 fun parseSettlementDetails(text: String): List<LotterySettlementDetail> {
