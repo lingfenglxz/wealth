@@ -4,6 +4,9 @@ import com.demo.wealth.data.FootballMatchEntity
 import com.demo.wealth.data.FootballRecommendationEntity
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 
 object FootballPlayTypes {
     val allCodes = listOf("had", "hhad", "crs", "ttg", "hafu")
@@ -146,6 +149,22 @@ object FootballDisplayNames {
             .replace("edge", "理论价值")
         teams.forEach { (english, chinese) -> result = result.replace(english, chinese) }
         return result
+    }
+}
+
+object FootballScheduleUi {
+    private const val MATCH_DISPLAY_HOURS = 3L
+
+    fun isHistoricalKickoff(kickoffTime: String, nowIso: String = OffsetDateTime.now().toString()): Boolean {
+        return try {
+            val now = OffsetDateTime.parse(nowIso)
+            val kickoff = runCatching { OffsetDateTime.parse(kickoffTime) }.getOrElse {
+                LocalDate.parse(kickoffTime).atTime(23, 59).atOffset(ZoneOffset.ofHours(8))
+            }
+            now.isAfter(kickoff.plusHours(MATCH_DISPLAY_HOURS))
+        } catch (_: Exception) {
+            false
+        }
     }
 }
 

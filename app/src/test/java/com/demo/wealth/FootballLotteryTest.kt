@@ -2,6 +2,7 @@ package com.demo.wealth
 
 import com.demo.wealth.domain.sports.FootballLotteryParser
 import com.demo.wealth.domain.sports.FootballPlayTypes
+import com.demo.wealth.domain.sports.FootballScheduleUi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -79,5 +80,20 @@ class FootballLotteryTest {
     @Test
     fun footballPlayTypesIncludeSportsLotteryBasics() {
         assertEquals(listOf("had", "hhad", "crs", "ttg", "hafu"), FootballPlayTypes.allCodes)
+    }
+
+    @Test
+    fun matchMovesToHistoryThreeHoursAfterKickoff() {
+        val beforeEnd = FootballScheduleUi.isHistoricalKickoff(
+            kickoffTime = "2026-06-12T03:00:00+08:00",
+            nowIso = "2026-06-12T05:59:00+08:00"
+        )
+        val afterEnd = FootballScheduleUi.isHistoricalKickoff(
+            kickoffTime = "2026-06-12T03:00:00+08:00",
+            nowIso = "2026-06-12T06:01:00+08:00"
+        )
+
+        assertEquals(false, beforeEnd)
+        assertEquals(true, afterEnd)
     }
 }

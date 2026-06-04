@@ -81,6 +81,7 @@ import com.demo.wealth.data.LotterySettlementDetail
 import com.demo.wealth.domain.lottery.LotteryRules
 import com.demo.wealth.domain.sports.FootballDisplayNames
 import com.demo.wealth.domain.sports.FootballPlayTypes
+import com.demo.wealth.domain.sports.FootballScheduleUi
 import com.demo.wealth.ui.WealthViewModel
 import kotlin.math.max
 import org.json.JSONArray
@@ -136,6 +137,7 @@ fun WealthApp(viewModel: WealthViewModel = viewModel()) {
     val settlements by viewModel.lotterySettlements.collectAsState()
     val footballMatches by viewModel.footballMatches.collectAsState()
     val footballRecommendations by viewModel.footballRecommendations.collectAsState()
+    val footballRecommendationHistory by viewModel.footballRecommendationHistory.collectAsState()
     val message by viewModel.message.collectAsState()
     val lotteryServerUrl by viewModel.lotteryServerUrl.collectAsState()
     val compoundRedCount by viewModel.compoundRedCount.collectAsState()
@@ -205,7 +207,7 @@ fun WealthApp(viewModel: WealthViewModel = viewModel()) {
                 2 -> SportsLotteryPage(
                     matches = footballMatches,
                     recommendations = footballRecommendations,
-                    onRefresh = viewModel::updateFootballFromServer,
+                    recommendationHistory = footballRecommendationHistory,
                     onGenerate = viewModel::generateFootballRecommendations
                 )
                 3 -> DataPage(
@@ -323,42 +325,38 @@ fun WelfareLotteryPage(
 fun SportsLotteryPage(
     matches: List<FootballMatchEntity>,
     recommendations: List<FootballRecommendationEntity>,
-    onRefresh: () -> Unit,
+    recommendationHistory: List<FootballRecommendationEntity>,
     onGenerate: () -> Unit
 ) {
+    val recommendationsByMatch = recommendations.groupBy { it.matchId }
+    val recommendationHistoryByMatch = recommendationHistory.groupBy { it.matchId }
+    val historicalMatches = matches.filter { FootballScheduleUi.isHistoricalKickoff(it.kickoffTime) }
+    val currentMatches = matches.filterNot { FootballScheduleUi.isHistoricalKickoff(it.kickoffTime) }
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            ActionHeader("足球彩票", "世界杯赛事 ${matches.size} 场 · 竞彩玩法实验", Icons.Default.SportsSoccer, "生成推荐", onGenerate)
+            ActionHeader("足球彩票", "当前赛事 ${currentMatches.size} 场 · 历史 ${historicalMatches.size} 场", Icons.Default.SportsSoccer, "生成推荐", onGenerate)
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                 ChoiceButton("足球彩票", selected = true) {}
-                FilledTonalButton(onClick = onRefresh) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(Modifier.size(8.dp))
-                    Text("刷新赛事")
-                }
             }
         }
         item { FootballPlayTypeCard() }
         item { FootballModelGlossaryCard() }
-        if (recommendations.isNotEmpty()) {
-            item { SectionTitle("实验推荐") }
-            items(recommendations.take(12), key = { "${it.matchId}-${it.playType}-${it.selection}-${it.createdAt}" }) { item ->
-                FootballRecommendationCard(item)
-            }
-        }
-        item { SectionTitle("世界杯赛事") }
-        if (matches.isEmpty()) {
+        item { SectionTitle("当前赛事") }
+        if (currentMatches.isEmpty()) {
             item {
                 Panel {
                     Text("暂无足球赛事", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("到“数据”页配置服务端地址后更新，或导入服务端格式的世界杯赛事 JSON。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+                    Text("到“数据”页配置服务端地址后更新；已结束场次会进入历史比赛。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
-        items(matches.take(30), key = { it.matchId }) { match ->
-            FootballMatchCard(match)
+        items(currentMatches.take(40), key = { it.matchId }) { match ->
+            FootballMatchCard(match, recommendationsByMatch[match.matchId].orEmpty())
+        }
+        item {
+            HistoricalFootballMatchesCard(historicalMatches, recommendationHistoryByMatch)
         }
     }
 }
@@ -379,7 +377,8 @@ fun FootballPlayTypeCard() {
 }
 
 @Composable
-fun FootballMatchCard(match: FootballMatchEntity) {
+fun FootballMatchCard(match: FootballMatchEntity, recommendations: List<FootballRecommendationEntity>) {
+    var expanded by remember { mutableStateOf(false) }
     Panel {
         Text("${FootballDisplayNames.team(match.homeTeam)} vs ${FootballDisplayNames.team(match.awayTeam)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(4.dp))
@@ -397,16 +396,32 @@ fun FootballMatchCard(match: FootballMatchEntity) {
             availablePools.forEach { code ->
                 MetaPill(FootballPlayTypes.displayName(code), MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
             }
+            if (recommendations.isNotEmpty()) {
+                MetaPill("推荐 ${recommendations.size}", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.secondary)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(onClick = { expanded = !expanded }) {
+            Text(if (expanded) "收起推荐" else "展开推荐")
+        }
+        if (expanded) {
+            Spacer(Modifier.height(8.dp))
+            if (recommendations.isEmpty()) {
+                Text("暂无推荐。请先点击“生成推荐”，或等待该场赔率补齐。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+            } else {
+                recommendations.sortedWith(compareBy<FootballRecommendationEntity> { it.playType }.thenByDescending { it.confidence }).forEach { recommendation ->
+                    FootballRecommendationInline(recommendation)
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
         }
     }
 }
 
 @Composable
-fun FootballRecommendationCard(item: FootballRecommendationEntity) {
+fun FootballRecommendationInline(item: FootballRecommendationEntity) {
     var expanded by remember { mutableStateOf(false) }
-    Panel {
-        Text("${FootballDisplayNames.team(item.homeTeam)} vs ${FootballDisplayNames.team(item.awayTeam)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(4.dp))
+    Column(modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFFE1E5E8), RoundedCornerShape(8.dp)).padding(12.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             MetaPill(item.playName, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.tertiary)
             MetaPill(FootballPlayTypes.selectionName(item.playType, item.selection), MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
@@ -433,6 +448,38 @@ fun FootballRecommendationCard(item: FootballRecommendationEntity) {
         Spacer(Modifier.height(10.dp))
         OutlinedButton(onClick = { expanded = !expanded }) {
             Text(if (expanded) "收起详情" else "展开详情")
+        }
+    }
+}
+
+@Composable
+fun HistoricalFootballMatchesCard(
+    matches: List<FootballMatchEntity>,
+    recommendationsByMatch: Map<String, List<FootballRecommendationEntity>>
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Panel {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("历史比赛", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            OutlinedButton(onClick = { expanded = !expanded }) {
+                Text(if (expanded) "收起" else "展开")
+            }
+        }
+        Text("已结束场次 ${matches.size} 场", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+        if (expanded) {
+            Spacer(Modifier.height(8.dp))
+            if (matches.isEmpty()) {
+                Text("暂无已结束场次。比赛结束并更新数据后会出现在这里。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+            } else {
+                matches.take(30).forEach { match ->
+                    Text("${FootballDisplayNames.team(match.homeTeam)} vs ${FootballDisplayNames.team(match.awayTeam)}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text("开赛 ${match.kickoffTime} · 推荐 ${recommendationsByMatch[match.matchId].orEmpty().size} 条", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+                    recommendationsByMatch[match.matchId].orEmpty().take(5).forEach { item ->
+                        Text("${item.playName} ${FootballPlayTypes.selectionName(item.playType, item.selection)} · 置信分 ${percent(item.confidence)} · 理论价值 ${signedPercent(item.edge)}", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+            }
         }
     }
 }

@@ -26,6 +26,7 @@ class WealthRepository(context: Context) {
         dao.observeLatestResearchSnapshot().map { it?.let(::parseStoredResearchReport) }
     val footballMatches: Flow<List<FootballMatchEntity>> = dao.observeFootballMatches()
     val footballRecommendations: Flow<List<FootballRecommendationEntity>> = dao.observeFootballRecommendations()
+    val footballRecommendationHistory: Flow<List<FootballRecommendationEntity>> = dao.observeFootballRecommendationHistory()
 
     suspend fun refreshLotterySettlements() {
         settleResolvedPredictions()
@@ -123,7 +124,6 @@ class WealthRepository(context: Context) {
         val recommendations = FootballLotteryParser.parseRecommendations(text)
         if (matches.isNotEmpty()) dao.upsertFootballMatches(matches)
         if (recommendations.isEmpty()) throw IOException("服务端未返回足球推荐")
-        dao.clearFootballRecommendations()
         dao.insertFootballRecommendations(recommendations)
         return recommendations.size
     }
