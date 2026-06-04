@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import tempfile
 from unittest.mock import patch
@@ -165,6 +166,50 @@ class SportsFootballApiTest(unittest.TestCase):
         self.assertEqual("poisson_v1", recommendation["modelName"])
         self.assertIn("expectedGoals", recommendation)
         self.assertGreater(recommendation["modelProbability"], 0)
+
+    def test_match_facts_adjust_expected_goals(self):
+        match = main.FootballMatch(
+            matchId="wc2026-001",
+            matchNum="001",
+            leagueName="FIFA World Cup 2026",
+            phase="Group A",
+            kickoffTime="2026-06-12T03:00:00+08:00",
+            homeTeam="Mexico",
+            awayTeam="South Africa",
+            neutralVenue=False,
+            handicap=0,
+            teamStrength={"home": 0.76, "away": 0.62},
+            pools={"had": {"H": 1.6, "D": 3.6, "A": 5.5}},
+            stadium="Mexico City Stadium",
+            city="Mexico City",
+            source="test",
+            updatedAt="2026-06-04",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            facts_file = Path(temp_dir) / "football_match_facts.json"
+            facts_file.write_text(
+                json.dumps(
+                    {
+                        "matches": [
+                            {
+                                "matchId": "wc2026-001",
+                                "homeUnavailableImpact": 0.30,
+                                "awayUnavailableImpact": 0.05,
+                                "totalGoalsMultiplier": 0.90,
+                            }
+                        ]
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            with patch.object(main, "FOOTBALL_MATCH_FACTS_FILE", facts_file):
+                adjusted = main.build_match_model_profile(match)
+            with patch.object(main, "FOOTBALL_MATCH_FACTS_FILE", Path(temp_dir) / "missing.json"):
+                baseline = main.build_match_model_profile(match)
+
+        self.assertLess(adjusted["expectedGoals"]["home"], baseline["expectedGoals"]["home"])
+        self.assertLess(adjusted["expectedGoals"]["away"], baseline["expectedGoals"]["away"])
 
     def test_schedule_merge_keeps_odds_and_adds_schedule_only_matches(self):
         schedule = [

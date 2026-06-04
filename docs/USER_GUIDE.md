@@ -54,6 +54,14 @@ issue,date,r1,r2,r3,r4,r5,r6,blue
 
 其中 `football_matches.json` 用于竞彩赔率兜底；`team_ratings.json` 用于 FIFA 排名源不可用时覆盖球队强弱；`football_match_facts.json` 用于伤停、停赛、预计首发、天气、战意、轮换等必须人工判断的信息。
 
+模板文件在服务端：
+
+- `server/data/templates/football_matches.template.json`
+- `server/data/templates/team_ratings.template.json`
+- `server/data/templates/football_match_facts.template.json`
+
+没有这些手工文件时，服务端仍会基于赛程、FIFA 排名/球队强弱推断和已有赔率生成基础推荐；补充后会提高数据质量，并修正预期进球与推荐理由。
+
 服务端还会把双色球最新推荐、模型报告、号码榜单和历史结算备份到 `server/data/ssq_state.json`。卸载重装后，手机端更新数据时如果本地缺少这些数据，会从服务端备份恢复。
 
 体彩足球 V1.1 的服务端运行数据会保存在：

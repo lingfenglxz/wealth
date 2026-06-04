@@ -1,0 +1,45 @@
+{
+  "matches": [
+    {
+      "matchId": "wc2026-001",
+      "homeTeam": "Mexico",
+      "awayTeam": "South Africa",
+      "homeUnavailableImpact": 0.10,
+      "awayUnavailableImpact": 0.05,
+      "totalGoalsMultiplier": 0.95,
+      "confidence": 0.70,
+      "injuries": [
+        {
+          "team": "Mexico",
+          "player": "示例球员",
+          "role": "主力前锋",
+          "status": "doubtful",
+          "impact": 0.08,
+          "source": "manual"
+        }
+      ],
+      "suspensions": [],
+      "lineup": {
+        "homeExpectedRotation": "low",
+        "awayExpectedRotation": "medium",
+        "homeFormation": "4-3-3",
+        "awayFormation": "4-2-3-1"
+      },
+      "weather": {
+        "condition": "rain",
+        "temperatureC": 22,
+        "windKph": 18,
+        "impact": "slower_pace"
+      },
+      "motivation": {
+        "home": "host_opener",
+        "away": "underdog"
+      },
+      "notes": [
+        "homeUnavailableImpact/awayUnavailableImpact 用 0-0.45 表示缺阵对进攻预期的削弱。",
+        "totalGoalsMultiplier 小于 1 会压低总进球预期，大于 1 会抬高。"
+      ],
+      "updatedAt": "2026-06-04"
+    }
+  ]
+}

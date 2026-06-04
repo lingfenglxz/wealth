@@ -93,6 +93,18 @@ App 数据页点击 `更新数据` 后，服务端会优先读取导入目录；
 - `server/data/imports/team_ratings.json`：如果 FIFA 排名页结构变化，可手工覆盖球队强弱；
 - `server/data/imports/football_match_facts.json`：伤停、停赛、预计首发、天气、战意、轮换等结构化赛事情报。
 
+模板在：
+
+- `server/data/templates/football_matches.template.json`
+- `server/data/templates/team_ratings.template.json`
+- `server/data/templates/football_match_facts.template.json`
+
+为什么不补这些也能生成推荐：服务端至少可以使用赛程、球队强弱推断、FIFA 排名缓存和已有赔率生成基础推荐。补充手工 JSON 后，模型会更有上下文：
+
+- 赔率文件决定哪些比赛和玩法可以生成推荐；
+- 球队强弱文件会覆盖自动排名评分，影响预期进球；
+- 赛事情报文件会根据伤停/天气等调整预期进球和数据质量。
+
 支持玩法：
 
 - `had`：胜平负

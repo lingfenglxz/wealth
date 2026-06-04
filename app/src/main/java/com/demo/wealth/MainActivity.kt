@@ -79,6 +79,7 @@ import com.demo.wealth.data.LotteryResearchReport
 import com.demo.wealth.data.LotterySettlement
 import com.demo.wealth.data.LotterySettlementDetail
 import com.demo.wealth.domain.lottery.LotteryRules
+import com.demo.wealth.domain.sports.FootballDisplayNames
 import com.demo.wealth.domain.sports.FootballPlayTypes
 import com.demo.wealth.ui.WealthViewModel
 import kotlin.math.max
@@ -340,6 +341,7 @@ fun SportsLotteryPage(
             }
         }
         item { FootballPlayTypeCard() }
+        item { FootballModelGlossaryCard() }
         if (recommendations.isNotEmpty()) {
             item { SectionTitle("实验推荐") }
             items(recommendations.take(12), key = { "${it.matchId}-${it.playType}-${it.selection}-${it.createdAt}" }) { item ->
@@ -379,12 +381,12 @@ fun FootballPlayTypeCard() {
 @Composable
 fun FootballMatchCard(match: FootballMatchEntity) {
     Panel {
-        Text("${match.homeTeam} vs ${match.awayTeam}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("${FootballDisplayNames.team(match.homeTeam)} vs ${FootballDisplayNames.team(match.awayTeam)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(4.dp))
-        Text("${match.leagueName} · ${match.phase}", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+        Text("${FootballDisplayNames.venue(match.leagueName)} · ${FootballDisplayNames.phase(match.phase)}", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         Text("开赛 ${match.kickoffTime} · 让球 ${match.handicap}", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         if (match.stadium.isNotBlank() || match.city.isNotBlank()) {
-            Text(listOf(match.stadium, match.city).filter { it.isNotBlank() }.joinToString(" · "), color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+            Text(listOf(match.stadium, match.city).filter { it.isNotBlank() }.joinToString(" · ") { FootballDisplayNames.venue(it) }, color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
@@ -401,29 +403,55 @@ fun FootballMatchCard(match: FootballMatchEntity) {
 
 @Composable
 fun FootballRecommendationCard(item: FootballRecommendationEntity) {
+    var expanded by remember { mutableStateOf(false) }
     Panel {
-        Text("${item.homeTeam} vs ${item.awayTeam}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("${FootballDisplayNames.team(item.homeTeam)} vs ${FootballDisplayNames.team(item.awayTeam)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             MetaPill(item.playName, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.tertiary)
-            MetaPill(item.selection, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
+            MetaPill(FootballPlayTypes.selectionName(item.playType, item.selection), MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
             if (item.modelName.isNotBlank()) {
                 MetaPill(item.modelName, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.secondary)
             }
         }
         Spacer(Modifier.height(8.dp))
         MetricRow("置信分", percent(item.confidence), "参考赔率", if (item.odds > 0.0) "%.2f".format(item.odds) else "-")
-        Spacer(Modifier.height(8.dp))
-        MetricRow("模型概率", percent(item.modelProbability), "公平概率", percent(item.fairProbability))
-        Spacer(Modifier.height(8.dp))
-        MetricRow("理论价值", signedPercent(item.edge), "数据质量", percent(item.dataQuality))
-        if (item.homeExpectedGoals > 0.0 || item.awayExpectedGoals > 0.0) {
+        if (expanded) {
             Spacer(Modifier.height(8.dp))
-            MetricRow("主队预期进球", "%.2f".format(item.homeExpectedGoals), "客队预期进球", "%.2f".format(item.awayExpectedGoals))
+            MetricRow("模型概率", percent(item.modelProbability), "公平概率", percent(item.fairProbability))
+            Spacer(Modifier.height(8.dp))
+            MetricRow("理论价值", signedPercent(item.edge), "数据质量", percent(item.dataQuality))
+            if (item.homeExpectedGoals > 0.0 || item.awayExpectedGoals > 0.0) {
+                Spacer(Modifier.height(8.dp))
+                MetricRow("主队预期进球", "%.2f".format(item.homeExpectedGoals), "客队预期进球", "%.2f".format(item.awayExpectedGoals))
+            }
+            Spacer(Modifier.height(8.dp))
+            parseStringArray(item.reasonsJson).take(4).forEach { reason ->
+                Text(FootballDisplayNames.reason(reason), color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+            }
         }
-        Spacer(Modifier.height(8.dp))
-        parseStringArray(item.reasonsJson).take(3).forEach { reason ->
-            Text(reason, color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(10.dp))
+        OutlinedButton(onClick = { expanded = !expanded }) {
+            Text(if (expanded) "收起详情" else "展开详情")
+        }
+    }
+}
+
+@Composable
+fun FootballModelGlossaryCard() {
+    var expanded by remember { mutableStateOf(false) }
+    Panel {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("推荐依据", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            OutlinedButton(onClick = { expanded = !expanded }) {
+                Text(if (expanded) "收起" else "解释")
+            }
+        }
+        if (expanded) {
+            Spacer(Modifier.height(8.dp))
+            Text("基于赛程、赔率、球队强弱、主办/中立场、赛事阶段和手工赛事情报生成。没有手工情报时，模型仍可用公开赛程、FIFA 排名和竞彩赔率计算；补充手工情报后会修正预期进球与数据质量。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+            Spacer(Modifier.height(6.dp))
+            Text("模型概率：poisson_v1 结合预期进球和赔率后的概率。公平概率：竞彩赔率去水后的市场概率。理论价值：模型概率乘赔率后的模拟价值，负值代表当前赔率不划算。数据质量：赔率、排名、赛程和手工情报完整度。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         }
     }
 }

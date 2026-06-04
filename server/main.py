@@ -781,6 +781,24 @@ def load_team_ratings() -> dict[str, dict[str, Any]]:
     return {str(item.get("team")): item for item in rows if item.get("team")}
 
 
+def load_match_facts() -> dict[str, dict[str, Any]]:
+    imported = read_json_payload(IMPORT_DIR / "football_match_facts.json")
+    cached = read_json_payload(FOOTBALL_MATCH_FACTS_FILE)
+    payload = imported or cached or {}
+    rows = payload.get("matches") or payload.get("items") or []
+    return {str(item.get("matchId")): item for item in rows if isinstance(item, dict) and item.get("matchId")}
+
+
+def read_json_payload(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def apply_team_ratings(matches: list[FootballMatch], ratings: dict[str, dict[str, Any]]) -> list[FootballMatch]:
     if not ratings:
         return matches
@@ -1301,6 +1319,12 @@ def estimate_expected_goals(match: FootballMatch) -> dict[str, float]:
     home_share = min(0.72, max(0.28, 0.5 + strength_gap * 0.34 + host_bonus))
     home_goals = min(4.2, max(0.25, base_total * home_share))
     away_goals = min(4.2, max(0.25, base_total * (1.0 - home_share)))
+    facts = load_match_facts().get(match.matchId, {})
+    home_goals *= max(0.55, 1.0 - min(0.45, safe_float(facts.get("homeUnavailableImpact")) or 0.0))
+    away_goals *= max(0.55, 1.0 - min(0.45, safe_float(facts.get("awayUnavailableImpact")) or 0.0))
+    total_multiplier = safe_float(facts.get("totalGoalsMultiplier")) or 1.0
+    home_goals *= min(1.35, max(0.65, total_multiplier))
+    away_goals *= min(1.35, max(0.65, total_multiplier))
     return {"home": home_goals, "away": away_goals}
 
 
@@ -1354,7 +1378,8 @@ def football_data_quality(match: FootballMatch, source_status: str) -> float:
     source_score = {"official": 0.95, "import": 0.86, "cache": 0.72, "fallback": 0.55}.get(source_status, 0.6)
     pool_score = min(1.0, len(match.pools) / max(1, len(FOOTBALL_PLAY_TYPES)))
     strength_score = 1.0 if match.teamStrength else 0.6
-    return source_score * 0.6 + pool_score * 0.25 + strength_score * 0.15
+    facts_score = 1.0 if match.matchId in load_match_facts() else 0.65
+    return source_score * 0.5 + pool_score * 0.22 + strength_score * 0.14 + facts_score * 0.14
 
 
 def football_reasons(

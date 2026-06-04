@@ -33,6 +33,8 @@ class FootballLotteryTest {
               "recommendations": [
                 {
                   "matchId": "wc2026-001",
+                  "homeTeam": "Mexico",
+                  "awayTeam": "South Africa",
                   "playType": "had",
                   "playName": "胜平负",
                   "modelName": "poisson_v1",
@@ -55,10 +57,15 @@ class FootballLotteryTest {
 
         assertEquals(1, matches.size)
         assertEquals("wc2026-001", matches.first().matchId)
-        assertEquals("Mexico City Stadium", matches.first().stadium)
-        assertEquals("Mexico City", matches.first().city)
+        assertEquals("墨西哥", matches.first().homeTeam)
+        assertEquals("南非", matches.first().awayTeam)
+        assertEquals("小组赛 A组", matches.first().phase)
+        assertEquals("墨西哥城球场", matches.first().stadium)
+        assertEquals("墨西哥城", matches.first().city)
         assertTrue(matches.first().poolsJson.contains("had"))
         assertEquals(1, recommendations.size)
+        assertEquals("墨西哥", recommendations.first().homeTeam)
+        assertEquals("南非", recommendations.first().awayTeam)
         assertEquals("H", recommendations.first().selection)
         assertEquals(0.51, recommendations.first().fairProbability, 0.0001)
         assertEquals(0.58, recommendations.first().modelProbability, 0.0001)
