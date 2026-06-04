@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -101,20 +103,20 @@ class MainActivity : ComponentActivity() {
 fun WealthTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = lightColorScheme(
-            primary = Color(0xFF146A58),
+            primary = Color(0xFF0F6B55),
             onPrimary = Color.White,
-            primaryContainer = Color(0xFFDCEFE8),
-            onPrimaryContainer = Color(0xFF0F3028),
-            secondary = Color(0xFFB04A46),
+            primaryContainer = Color(0xFFE4F4EE),
+            onPrimaryContainer = Color(0xFF102F27),
+            secondary = Color(0xFFC14F4A),
             onSecondary = Color.White,
-            secondaryContainer = Color(0xFFF6DEDC),
-            tertiary = Color(0xFF2F6FB2),
+            secondaryContainer = Color(0xFFFBE6E3),
+            tertiary = Color(0xFF226DB4),
             onTertiary = Color.White,
-            tertiaryContainer = Color(0xFFDCE8F7),
-            background = Color(0xFFF3F5F6),
+            tertiaryContainer = Color(0xFFE3EFFB),
+            background = Color(0xFFF6F7F9),
             surface = Color(0xFFFFFFFF),
-            surfaceVariant = Color(0xFFE9EEF0),
-            outline = Color(0xFFD7DEE2)
+            surfaceVariant = Color(0xFFF0F3F5),
+            outline = Color(0xFFE1E6EA)
         ),
         content = content
     )
@@ -152,15 +154,15 @@ fun WealthApp(viewModel: WealthViewModel = viewModel()) {
             TopAppBar(
                 title = {
                     Column {
-                        Text("搞钱", fontWeight = FontWeight.Bold)
-                        Text("福彩与体彩实验台", style = MaterialTheme.typography.labelMedium, color = Color(0xFF61706C))
+                        Text("搞钱", fontWeight = FontWeight.Bold, color = Color(0xFF101820))
+                        Text("福彩与体彩实验台", style = MaterialTheme.typography.labelMedium, color = Color(0xFF6A747C))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFF6F7F9))
             )
         },
         bottomBar = {
-            NavigationBar(containerColor = Color.White) {
+            NavigationBar(containerColor = Color.White, tonalElevation = 0.dp) {
                 tabs.forEachIndexed { index, tab ->
                     NavigationBarItem(
                         selected = selected == index,
@@ -168,11 +170,11 @@ fun WealthApp(viewModel: WealthViewModel = viewModel()) {
                         icon = { Icon(tab.icon, contentDescription = tab.title) },
                         label = { Text(tab.title) },
                         colors = NavigationBarItemDefaults.colors(
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            indicatorColor = Color(0xFFE4F4EE),
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
-                            unselectedIconColor = Color(0xFF59646A),
-                            unselectedTextColor = Color(0xFF59646A)
+                            unselectedIconColor = Color(0xFF737D86),
+                            unselectedTextColor = Color(0xFF737D86)
                         )
                     )
                 }
@@ -763,21 +765,23 @@ fun SectionTitle(text: String) {
         text,
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
-        color = Color(0xFF1D262B)
+        color = Color(0xFF111820)
     )
 }
 
 @Composable
 fun StatusCard(message: String) {
     Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
+        color = Color(0xFFEAF6F1),
         shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Color(0xFFCFE7DD), RoundedCornerShape(8.dp))
     ) {
         Column(Modifier.padding(14.dp)) {
-            Text("状态", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Text("状态", style = MaterialTheme.typography.labelLarge, color = Color(0xFF0F6B55))
             Spacer(Modifier.height(4.dp))
-            Text(message, style = MaterialTheme.typography.bodyLarge, color = Color(0xFF17302A))
+            Text(message, style = MaterialTheme.typography.bodyLarge, color = Color(0xFF16332B))
         }
     }
 }
@@ -1186,6 +1190,7 @@ fun Ball(text: String, color: Color) {
         modifier = Modifier
             .size(34.dp)
             .background(color, CircleShape)
+            .border(1.dp, Color.White.copy(alpha = 0.7f), CircleShape)
     ) {
         Text(text, color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
     }
@@ -1203,12 +1208,12 @@ fun MetricRow(leftLabel: String, leftValue: String, rightLabel: String, rightVal
 fun Metric(label: String, value: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+            .background(Color(0xFFF7F9FA), RoundedCornerShape(8.dp))
+            .border(1.dp, Color(0xFFE6EBEF), RoundedCornerShape(8.dp))
             .padding(10.dp)
     ) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = Color(0xFF61706C))
-        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF172126))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = Color(0xFF68737C))
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF111820))
     }
 }
 
@@ -1216,17 +1221,18 @@ fun Metric(label: String, value: String, modifier: Modifier = Modifier) {
 fun CardRow(title: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
     Card(
         onClick = onClick,
-        colors = CardDefaults.cardColors(containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.White),
+        colors = CardDefaults.cardColors(containerColor = if (selected) Color(0xFFEAF6F1) else Color.White),
         shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier.border(
             width = 1.dp,
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+            color = if (selected) MaterialTheme.colorScheme.primary else Color(0xFFE1E6EA),
             shape = RoundedCornerShape(8.dp)
         )
     ) {
         Column(Modifier.fillMaxWidth().padding(14.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color(0xFF61706C))
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = Color(0xFF111820))
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color(0xFF68737C))
         }
     }
 }
@@ -1239,21 +1245,25 @@ fun Panel(content: @Composable ColumnScope.() -> Unit) {
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+            .border(1.dp, Color(0xFFE5EAF0), RoundedCornerShape(8.dp))
     ) {
-        Column(Modifier.padding(14.dp), content = content)
+        Column(Modifier.padding(16.dp), content = content)
     }
 }
 
 @Composable
 fun MetaPill(text: String, background: Color, foreground: Color) {
-    Surface(color = background, shape = RoundedCornerShape(999.dp)) {
+    Surface(
+        color = background,
+        shape = RoundedCornerShape(999.dp),
+        modifier = Modifier.border(1.dp, foreground.copy(alpha = 0.16f), RoundedCornerShape(999.dp))
+    ) {
         Text(
             text = text,
             color = foreground,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp)
         )
     }
 }
@@ -1261,11 +1271,25 @@ fun MetaPill(text: String, background: Color, foreground: Color) {
 @Composable
 fun ChoiceButton(text: String, selected: Boolean, onClick: () -> Unit) {
     if (selected) {
-        Button(onClick = onClick) {
+        Button(
+            onClick = onClick,
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF0F6B55),
+                contentColor = Color.White
+            )
+        ) {
             Text(text)
         }
     } else {
-        OutlinedButton(onClick = onClick) {
+        OutlinedButton(
+            onClick = onClick,
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = Color(0xFF26323A)
+            ),
+            border = BorderStroke(1.dp, Color(0xFFDDE4EA))
+        ) {
             Text(text)
         }
     }
