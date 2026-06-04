@@ -18,6 +18,8 @@ app = FastAPI(title="WealthLab Light Server", version="0.2.0")
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 CACHE_FILE = DATA_DIR / "ssq_draws.json"
+IMPORT_DIR = DATA_DIR / "imports"
+SSQ_STATE_FILE = DATA_DIR / "ssq_state.json"
 FOOTBALL_CACHE_FILE = DATA_DIR / "football_matches.json"
 WORLDCUP_FALLBACK_FILE = DATA_DIR / "worldcup_2026_matches.json"
 CWL_URL = "https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice"
@@ -84,11 +86,13 @@ async def ssq_draws(
     refresh: bool = Query(default=False),
 ) -> dict[str, Any]:
     draws = await get_draws(limit, refresh)
+    state = refresh_ssq_state_settlements(draws)
     return {
         "source": "cwl",
         "count": len(draws),
         "draws": [asdict(draw) for draw in draws],
         "analysis": analyze(draws),
+        "stateBackup": state,
     }
 
 
@@ -128,7 +132,7 @@ async def ssq_recommendations(
     comparison = compare_models(draws, recentWindow)
     selected_backtest = next((item for item in comparison if item["version"] == model_version), None)
     number_rankings = build_number_rankings(draws, model_version, recentWindow)
-    return {
+    response = {
         "source": "cwl",
         "count": len(draws),
         "draws": [asdict(draw) for draw in draws],
@@ -142,6 +146,8 @@ async def ssq_recommendations(
         "narrative": build_narrative(analysis, model_version),
         "numberRankings": number_rankings,
     }
+    response["stateBackup"] = save_ssq_recommendation_state(response)
+    return response
 
 
 @app.get("/api/lottery/sports/football/matches")
@@ -187,10 +193,19 @@ async def football_recommendations(
 
 
 async def get_draws(limit: int, refresh: bool) -> list[SsqDraw]:
+    imported = load_imported_ssq_draws()
+    if imported:
+        save_cache(imported)
+        return imported[:limit]
     cached = load_cache()
     if cached and not refresh:
         return cached[:limit]
-    draws = await refresh_ssq_draws(cached, limit) if cached else await fetch_ssq_draws(limit)
+    try:
+        draws = await refresh_ssq_draws(cached, limit) if cached else await fetch_ssq_draws(limit)
+    except Exception:
+        if cached:
+            return cached[:limit]
+        raise
     save_cache(draws)
     return draws[:limit]
 
@@ -264,6 +279,195 @@ def save_cache(draws: list[SsqDraw]) -> None:
     CACHE_FILE.write_text(json.dumps([asdict(draw) for draw in draws], ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def load_imported_ssq_draws() -> list[SsqDraw]:
+    path = IMPORT_DIR / "ssq_draws.json"
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    rows = data.get("draws") if isinstance(data, dict) else data
+    if not isinstance(rows, list):
+        return []
+    draws = [SsqDraw(**item) for item in rows if valid_server_draw_dict(item)]
+    return sorted(draws, key=lambda item: item.issue, reverse=True)
+
+
+def empty_ssq_state() -> dict[str, Any]:
+    return {"predictions": [], "researchReports": [], "lotterySettlements": []}
+
+
+def load_ssq_state() -> dict[str, Any]:
+    if not SSQ_STATE_FILE.exists():
+        return empty_ssq_state()
+    try:
+        data = json.loads(SSQ_STATE_FILE.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return empty_ssq_state()
+    state = empty_ssq_state()
+    for key in state:
+        value = data.get(key)
+        if isinstance(value, list):
+            state[key] = value
+    return state
+
+
+def save_ssq_state(state: dict[str, Any]) -> dict[str, Any]:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    normalized = empty_ssq_state()
+    normalized["predictions"] = list(state.get("predictions") or [])[-500:]
+    normalized["researchReports"] = list(state.get("researchReports") or [])[-200:]
+    normalized["lotterySettlements"] = list(state.get("lotterySettlements") or [])[-500:]
+    SSQ_STATE_FILE.write_text(json.dumps(normalized, ensure_ascii=False, indent=2), encoding="utf-8")
+    return normalized
+
+
+def save_ssq_recommendation_state(response: dict[str, Any]) -> dict[str, Any]:
+    state = load_ssq_state()
+    predictions = response.get("predictions") or []
+    if predictions:
+        target_issue = str(predictions[0].get("targetIssue") or "")
+        state["predictions"] = [item for item in state["predictions"] if item.get("targetIssue") != target_issue]
+        state["predictions"].extend(predictions)
+        report = build_research_backup(response)
+        state["researchReports"] = [item for item in state["researchReports"] if item.get("targetIssue") != target_issue]
+        state["researchReports"].append(report)
+        draws = [SsqDraw(**item) for item in response.get("draws", []) if valid_server_draw_dict(item)]
+        state = settle_state_predictions(state, draws)
+    return save_ssq_state(state)
+
+
+def refresh_ssq_state_settlements(draws: list[SsqDraw]) -> dict[str, Any]:
+    state = settle_state_predictions(load_ssq_state(), draws)
+    return save_ssq_state(state) if state != load_ssq_state() else state
+
+
+def build_research_backup(response: dict[str, Any]) -> dict[str, Any]:
+    predictions = response.get("predictions") or []
+    first = predictions[0] if predictions else {}
+    report = {
+        "modelVersion": response.get("modelVersion", "balanced_v2"),
+        "recentWindow": response.get("recentWindow", 120),
+        "backtest": response.get("backtest"),
+        "modelComparison": response.get("modelComparison") or [],
+        "budgetPlan": response.get("budgetPlan"),
+        "narrative": response.get("narrative") or [],
+        "numberRankings": response.get("numberRankings") or {"reds": [], "blues": []},
+    }
+    return {
+        "targetIssue": first.get("targetIssue", ""),
+        "sourceIssue": first.get("sourceIssue", ""),
+        "modelVersion": report["modelVersion"],
+        "report": report,
+    }
+
+
+def settle_state_predictions(state: dict[str, Any], draws: list[SsqDraw]) -> dict[str, Any]:
+    draws_by_issue = {draw.issue: draw for draw in draws}
+    predictions_by_issue: dict[str, list[dict[str, Any]]] = {}
+    for prediction in state.get("predictions") or []:
+        issue = str(prediction.get("targetIssue") or "")
+        if issue:
+            predictions_by_issue.setdefault(issue, []).append(prediction)
+    settlements = {item.get("issue"): item for item in state.get("lotterySettlements") or []}
+    for issue, predictions in predictions_by_issue.items():
+        draw = draws_by_issue.get(issue)
+        if not draw:
+            continue
+        settlement = build_server_settlement(draw, predictions)
+        if settlement:
+            settlements[issue] = settlement
+    state["lotterySettlements"] = [settlements[key] for key in sorted(settlements.keys(), reverse=True) if key]
+    return state
+
+
+def build_server_settlement(draw: SsqDraw, predictions: list[dict[str, Any]]) -> dict[str, Any] | None:
+    details = [settle_server_prediction(prediction, draw) for prediction in predictions]
+    details = [detail for detail in details if detail]
+    if not details:
+        return None
+    bet_count = sum(detail["betCount"] for detail in details)
+    prize = sum(detail["prizeAmount"] for detail in details)
+    invested = bet_count * 2.0
+    tiers = {"first": 0, "second": 0, "third": 0, "fourth": 0, "fifth": 0, "sixth": 0}
+    for detail in details:
+        for key, value in detail["tierCounts"].items():
+            tiers[key] = tiers.get(key, 0) + value
+    return {
+        "issue": draw.issue,
+        "drawDate": draw.date,
+        "settledAt": int(date.today().strftime("%Y%m%d")),
+        "betCount": bet_count,
+        "investedAmount": invested,
+        "simulatedPrizeAmount": prize,
+        "roi": (prize - invested) / invested if invested else 0.0,
+        "bestRedHits": max(detail["bestRedHits"] for detail in details),
+        "blueHit": any(detail["blueHit"] for detail in details),
+        "tierCounts": tiers,
+        "details": details,
+    }
+
+
+def settle_server_prediction(prediction: dict[str, Any], draw: SsqDraw) -> dict[str, Any] | None:
+    reds = [int(value) for value in prediction.get("redBalls") or []]
+    blues = [int(value) for value in prediction.get("blueBalls") or []]
+    if len(reds) < 6 or not blues:
+        return None
+    red_overlap = len(set(reds) & set(draw.redBalls))
+    non_hit_reds = len(reds) - red_overlap
+    has_blue = draw.blueBall in blues
+    losing_blue_count = len(blues) - (1 if has_blue else 0)
+    tiers = {"first": 0, "second": 0, "third": 0, "fourth": 0, "fifth": 0, "sixth": 0}
+    for red_hits in range(0, 7):
+        red_count = combination(red_overlap, red_hits) * combination(non_hit_reds, 6 - red_hits)
+        if red_count <= 0:
+            continue
+        if has_blue:
+            add_server_tier(tiers, red_hits, True, red_count)
+        if losing_blue_count > 0:
+            add_server_tier(tiers, red_hits, False, red_count * losing_blue_count)
+    prize = tiers["third"] * 3000.0 + tiers["fourth"] * 200.0 + tiers["fifth"] * 10.0 + tiers["sixth"] * 5.0
+    return {
+        "label": "复式" if len(reds) > 6 or len(blues) > 1 else "单式",
+        "redBalls": sorted(reds),
+        "blueBalls": sorted(blues),
+        "betCount": combination(len(reds), 6) * len(blues),
+        "bestRedHits": min(red_overlap, 6),
+        "blueHit": has_blue,
+        "prizeAmount": prize,
+        "tierCounts": tiers,
+    }
+
+
+def add_server_tier(target: dict[str, int], red_hits: int, blue_hit: bool, count: int) -> None:
+    tier = None
+    if red_hits == 6 and blue_hit:
+        tier = "first"
+    elif red_hits == 6:
+        tier = "second"
+    elif red_hits == 5 and blue_hit:
+        tier = "third"
+    elif red_hits == 5 or (red_hits == 4 and blue_hit):
+        tier = "fourth"
+    elif red_hits == 4 or (red_hits == 3 and blue_hit):
+        tier = "fifth"
+    elif blue_hit and 0 <= red_hits <= 2:
+        tier = "sixth"
+    if tier:
+        target[tier] = target.get(tier, 0) + count
+
+
+def combination(n: int, k: int) -> int:
+    if k < 0 or k > n:
+        return 0
+    return math.comb(n, k)
+
+
+def valid_server_draw_dict(item: dict[str, Any]) -> bool:
+    return bool(item.get("issue") and item.get("date") and item.get("redBalls") and item.get("blueBall"))
+
+
 FOOTBALL_PLAY_TYPES = {
     "had": "胜平负",
     "hhad": "让球胜平负",
@@ -274,6 +478,10 @@ FOOTBALL_PLAY_TYPES = {
 
 
 async def get_football_matches(refresh: bool) -> tuple[list[FootballMatch], str, str]:
+    imported = read_football_file(IMPORT_DIR / "football_matches.json", "import")
+    if imported:
+        save_football_cache(imported)
+        return imported, "import", "使用服务端导入目录中的足球赛事"
     if refresh:
         try:
             official = await fetch_sporttery_football_matches()

@@ -45,25 +45,6 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun importLottery(uri: Uri?) {
-        if (uri == null) return
-        viewModelScope.launch {
-            val count = repository.importLotteryCsv(readText(uri))
-            message.value = "已导入 $count 期双色球数据"
-        }
-    }
-
-    fun updateLotteryFromOfficial() {
-        viewModelScope.launch {
-            runCatching {
-                val drawCount = repository.updateLotteryFromOfficial()
-                message.value = "官网直连更新 $drawCount 期"
-            }.onFailure {
-                message.value = "双色球自动更新失败：${friendlyError(it)}"
-            }
-        }
-    }
-
     fun updateLotteryFromServer() {
         viewModelScope.launch {
             runCatching {
@@ -72,14 +53,6 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
             }.onFailure {
                 message.value = "服务端更新失败：${friendlyError(it)}"
             }
-        }
-    }
-
-    fun importFootball(uri: Uri?) {
-        if (uri == null) return
-        viewModelScope.launch {
-            val count = repository.importFootballJson(readText(uri))
-            message.value = "已导入 $count 场足球赛事"
         }
     }
 

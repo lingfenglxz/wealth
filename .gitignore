@@ -29,3 +29,7 @@ Thumbs.db
 *.log
 *.tmp
 *.temp
+
+# Server-local runtime data
+server/data/ssq_state.json
+server/data/imports/

@@ -208,12 +208,9 @@ fun WealthApp(viewModel: WealthViewModel = viewModel()) {
                     onGenerate = viewModel::generateFootballRecommendations
                 )
                 3 -> DataPage(
-                    viewModel::importLottery,
-                    viewModel::updateLotteryFromOfficial,
                     lotteryServerUrl,
                     viewModel::setLotteryServerUrl,
                     viewModel::updateLotteryFromServer,
-                    viewModel::importFootball,
                     viewModel::updateFootballFromServer,
                     viewModel::exportBackup,
                     viewModel::restoreBackup,
@@ -269,7 +266,7 @@ fun FootballMatchesSummaryCard(matches: List<FootballMatchEntity>) {
         Text("足球彩票", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(4.dp))
         if (matches.isEmpty()) {
-            Text("暂无世界杯赛事，请到“数据”页从服务端更新或导入 JSON。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+            Text("暂无世界杯赛事，请到“数据”页点击更新数据。服务端会处理官方抓取、缓存或目录文件。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         } else {
             val next = matches.first()
             Text("已准备 ${matches.size} 场赛事", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
@@ -591,23 +588,14 @@ fun CountStepper(label: String, value: Int, min: Int, max: Int, step: Int = 1, o
 
 @Composable
 fun DataPage(
-    onLotteryImport: (android.net.Uri?) -> Unit,
-    onLotteryAutoUpdate: () -> Unit,
     lotteryServerUrl: String,
     onLotteryServerUrlChange: (String) -> Unit,
     onLotteryServerUpdate: () -> Unit,
-    onFootballImport: (android.net.Uri?) -> Unit,
     onFootballServerUpdate: () -> Unit,
     onBackupExport: (android.net.Uri?) -> Unit,
     onBackupRestore: (android.net.Uri?) -> Unit,
     message: String
 ) {
-    val lotteryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {
-        onLotteryImport(it)
-    }
-    val footballLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {
-        onFootballImport(it)
-    }
     val backupExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) {
         onBackupExport(it)
     }
@@ -621,7 +609,7 @@ fun DataPage(
             Panel {
                 Text("双色球数据", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(6.dp))
-                Text("优先使用你部署的轻服务端拉取尽可能多的历史开奖；官网直连作为备用。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+                Text("手机端只从轻服务端获取数据；官网抓取、缓存和文件导入都由服务端处理。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(
                     value = lotteryServerUrl,
@@ -632,23 +620,10 @@ fun DataPage(
                 )
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    Button(onClick = { lotteryLauncher.launch(arrayOf("text/*", "text/comma-separated-values", "application/octet-stream")) }) {
-                        Icon(Icons.Default.CloudUpload, contentDescription = null)
-                        Spacer(Modifier.size(8.dp))
-                        Text("导入CSV")
-                    }
-                    FilledTonalButton(onClick = onLotteryServerUpdate) {
+                    Button(onClick = onLotteryServerUpdate) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(Modifier.size(8.dp))
-                        Text("服务端更新")
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onLotteryAutoUpdate) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null)
-                        Spacer(Modifier.size(8.dp))
-                        Text("官网直连")
+                        Text("更新数据")
                     }
                 }
             }
@@ -657,18 +632,13 @@ fun DataPage(
             Panel {
                 Text("体彩足球数据", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(6.dp))
-                Text("优先走轻服务端官方抓取；若被拦截，服务端会使用缓存或内置世界杯赛程。也可以导入服务端格式 JSON。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+                Text("手机端只从轻服务端获取赛事；官方抓取、缓存和 JSON 文件导入都由服务端处理。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     Button(onClick = onFootballServerUpdate) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(Modifier.size(8.dp))
-                        Text("服务端更新")
-                    }
-                    Button(onClick = { footballLauncher.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }) {
-                        Icon(Icons.Default.CloudUpload, contentDescription = null)
-                        Spacer(Modifier.size(8.dp))
-                        Text("导入JSON")
+                        Text("更新数据")
                     }
                 }
             }

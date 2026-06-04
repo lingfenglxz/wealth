@@ -1,8 +1,8 @@
 package com.demo.wealth.data
 
 import android.content.Context
-import com.demo.wealth.domain.lottery.LotteryCsvParser
 import com.demo.wealth.domain.lottery.LotteryOfficialParser
+import com.demo.wealth.domain.lottery.LotteryServerStateParser
 import com.demo.wealth.domain.sports.FootballLotteryParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -31,22 +31,6 @@ class WealthRepository(context: Context) {
         settleResolvedPredictions()
     }
 
-    suspend fun importLotteryCsv(text: String): Int {
-        val draws = LotteryCsvParser.parse(text)
-        dao.upsertLotteryDraws(draws)
-        settleResolvedPredictions()
-        return draws.size
-    }
-
-    suspend fun updateLotteryFromOfficial(): Int {
-        val text = fetchFirst(CWL_SSQ_URLS)
-        val draws = LotteryOfficialParser.parseCwlJson(text)
-        if (draws.isEmpty()) throw IOException("官网返回数据为空")
-        dao.upsertLotteryDraws(draws)
-        settleResolvedPredictions()
-        return draws.size
-    }
-
     suspend fun updateLotteryFromServer(baseUrl: String): Int {
         val normalized = baseUrl.trim().trimEnd('/')
         if (normalized.isBlank()) throw IOException("请先填写服务端地址")
@@ -54,6 +38,7 @@ class WealthRepository(context: Context) {
         val draws = LotteryOfficialParser.parseServerJson(text)
         if (draws.isEmpty()) throw IOException("服务端返回数据为空")
         dao.upsertLotteryDraws(draws)
+        restoreMissingLotteryStateFromServer(text)
         settleResolvedPredictions()
         return draws.size
     }
@@ -99,6 +84,19 @@ class WealthRepository(context: Context) {
         }
         settleResolvedPredictions()
         return LotteryRecommendationResponse(predictions, report)
+    }
+
+    private suspend fun restoreMissingLotteryStateFromServer(text: String) {
+        val state = LotteryServerStateParser.parse(text)
+        if (state.predictions.isNotEmpty() && dao.getAllPredictions().isEmpty()) {
+            dao.insertPredictions(state.predictions)
+        }
+        if (state.researchSnapshots.isNotEmpty() && dao.getResearchSnapshots(1).isEmpty()) {
+            dao.insertResearchSnapshots(state.researchSnapshots)
+        }
+        if (state.settlements.isNotEmpty() && dao.getLotterySettlements(1).isEmpty()) {
+            dao.upsertLotterySettlements(state.settlements)
+        }
     }
 
     suspend fun updateFootballMatchesFromServer(baseUrl: String, refresh: Boolean = true): Int {
@@ -511,15 +509,6 @@ class WealthRepository(context: Context) {
             .put("prizeAmount", prizeAmount)
             .put("tierCounts", JSONObject(tierCounts as Map<*, *>))
 
-    private suspend fun fetchFirst(urls: List<String>): String {
-        var lastError: Throwable? = null
-        for (url in urls) {
-            runCatching { return fetchText(url) }
-                .onFailure { lastError = it }
-        }
-        throw IOException(lastError.toFriendlyNetworkMessage(), lastError)
-    }
-
     private suspend fun fetchText(url: String): String = withContext(Dispatchers.IO) {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15000
@@ -553,28 +542,6 @@ class WealthRepository(context: Context) {
 
         private const val DESKTOP_USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
-
-        private val CWL_SSQ_URLS = listOf(
-            "https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice?name=ssq&issueCount=200&issueStart=&issueEnd=&dayStart=&dayEnd=&pageNo=1&pageSize=200&week=&systemType=PC",
-            "https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice?name=ssq&issueCount=100&issueStart=&issueEnd=&dayStart=&dayEnd=&pageNo=1&pageSize=100&week=&systemType=PC",
-            "https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice?name=ssq&pageNo=1&pageSize=100&systemType=PC",
-            "http://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice?name=ssq&issueCount=100&issueStart=&issueEnd=&dayStart=&dayEnd=&pageNo=1&pageSize=100&week=&systemType=PC"
-        )
     }
 
-}
-
-private fun Throwable?.toFriendlyNetworkMessage(): String {
-    val message = this?.message.orEmpty()
-    return when {
-        this == null -> "网络请求失败"
-        this is SocketTimeoutException -> "连接官网超时"
-        "HTTP" in message -> message
-        "Unable to resolve host" in message -> "无法解析官网域名，请检查网络"
-        "Failed to connect" in message -> "无法连接中国福彩网"
-        "timeout" in message.lowercase() -> "连接官网超时"
-        message.startsWith("http://") || message.startsWith("https://") -> "官网接口请求失败"
-        message.isBlank() -> "网络请求失败"
-        else -> message.take(80)
-    }
 }

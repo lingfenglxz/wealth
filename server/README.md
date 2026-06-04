@@ -34,9 +34,26 @@ http://服务器IP:8000
 - `POST /api/lottery/sports/football/import`
 - `GET /api/lottery/sports/football/recommendations?playType=all`
 
+## 服务端数据目录
+
+手机端不再上传开奖或赛事文件，也不再直连官网。手工导入时，把文件放到服务端目录：
+
+- `server/data/imports/ssq_draws.json`
+- `server/data/imports/football_matches.json`
+
+App 数据页点击 `更新数据` 后，服务端会优先读取导入目录；没有导入文件时再走缓存/官方抓取/fallback。
+
 ## 双色球
 
 双色球开奖会同时缓存在服务端 `server/data/ssq_draws.json` 和 App 本地数据库里。普通推荐直接使用缓存；手动刷新时服务端会做增量同步，优先只拉取本地最新期号之后的新开奖。
+
+服务端还会备份双色球状态到 `server/data/ssq_state.json`：
+
+- 最新推荐
+- 模型报告和号码榜单
+- 历史结算信息
+
+生成推荐时服务端会写入备份；App 更新数据时，如果手机本地缺少这些数据，会从服务端返回的 `stateBackup` 中恢复。
 
 推荐接口会返回：
 
