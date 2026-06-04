@@ -5,7 +5,7 @@
 ## 功能
 
 - 福彩：双色球历史开奖服务端更新、服务端评分模型、复式推荐、逐组解释、模型历史验证和真实推荐结算。
-- 体彩：足球彩票首版覆盖世界杯赛事，支持胜平负、让球胜平负、比分、总进球、半全场的赛程展示和实验性推荐。
+- 体彩：足球彩票覆盖 104 场世界杯赛程，支持胜平负、让球胜平负、比分、总进球、半全场的赔率展示、`poisson_v1` 实验性推荐、赔率快照、赛果导入和模型报告。
 - 数据：手机端只从轻服务端更新数据；服务端负责官方抓取、缓存、目录文件导入，并备份双色球推荐、模型报告和结算信息。
 - 原生 Kotlin + Jetpack Compose UI；不包含购彩、下单、支付、账户或公开部署能力。
 
@@ -15,6 +15,8 @@
 
 - `server/data/imports/ssq_draws.json`
 - `server/data/imports/football_matches.json`
+- `server/data/imports/team_ratings.json`
+- `server/data/imports/football_match_facts.json`
 
 然后在 App 的数据页点击 `更新数据`。
 

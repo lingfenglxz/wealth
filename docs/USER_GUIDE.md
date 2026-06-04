@@ -29,10 +29,12 @@ issue,date,r1,r2,r3,r4,r5,r6,blue
 
 进入 `体彩` 页，首版只有 `足球彩票` 子玩法，面向 2026 世界杯赛事：
 
-- `刷新赛事`：从轻服务端获取足球赛事；服务端会优先尝试官方竞彩接口，失败时使用缓存或内置世界杯赛程。
-- `生成推荐`：从轻服务端获取实验性推荐。
+- `刷新赛事`：从轻服务端获取足球赛事；服务端会优先同步 openfootball 世界杯赛程/北京时间、官方竞彩赔率、FIFA 排名强弱，失败时使用缓存或内置世界杯赛程。
+- `生成推荐`：从轻服务端获取实验性推荐，推荐卡会展示模型名、预期进球、模型概率、公平概率、理论价值和数据质量。
 - 支持玩法展示：胜平负、让球胜平负、比分、总进球、半全场。
-- 推荐只基于赛程、赔率字段和球队强弱标签做实验分析，不包含串关奖金计算，不保证结果。
+- V1.2 推荐使用 `poisson_v1`：服务端根据球队强弱、主办/中立场和赛事阶段估算预期进球，再用 Poisson 比分分布推导各玩法概率，并和去水后的赔率概率融合。服务端会保存赔率快照和推荐历史，便于后续导入赛果后做模型报告。
+- 赛程和赔率分开：服务端会补齐 104 场世界杯赛程；没有赔率的场次会显示“暂无赔率”，不会生成推荐。
+- 赛果可由服务端从 openfootball 同步；小组积分根据赛果自动计算。
 
 ## 4. 数据
 
@@ -47,11 +49,23 @@ issue,date,r1,r2,r3,r4,r5,r6,blue
 
 - `server/data/imports/ssq_draws.json`
 - `server/data/imports/football_matches.json`
+- `server/data/imports/team_ratings.json`
+- `server/data/imports/football_match_facts.json`
+
+其中 `football_matches.json` 用于竞彩赔率兜底；`team_ratings.json` 用于 FIFA 排名源不可用时覆盖球队强弱；`football_match_facts.json` 用于伤停、停赛、预计首发、天气、战意、轮换等必须人工判断的信息。
 
 服务端还会把双色球最新推荐、模型报告、号码榜单和历史结算备份到 `server/data/ssq_state.json`。卸载重装后，手机端更新数据时如果本地缺少这些数据，会从服务端备份恢复。
+
+体彩足球 V1.1 的服务端运行数据会保存在：
+
+- `server/data/football_odds_snapshots.json`
+- `server/data/football_recommendations.json`
+- `server/data/football_results.json`
+
+赛果目前从服务端接口或文件维护，不在手机端上传。导入赛果后，可通过服务端 `GET /api/lottery/sports/football/model-report` 查看推荐命中、模拟收益和平均 edge。
 
 ## 5. 注意
 
 - 双色球和足球推荐都是统计实验和娱乐工具，不保证中奖。
-- 体彩足球首版不做投注单、串关、倍数、理论奖金或赛果结算。
+- 体彩足球不做投注单、串关、倍数或下单；服务端模型报告只做历史实验统计。
 - 官方竞彩站点可能拦截服务端抓取；这是预期场景，服务端会自动降级到缓存或内置数据。

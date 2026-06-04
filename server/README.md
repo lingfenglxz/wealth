@@ -33,6 +33,8 @@ http://服务器IP:8000
 - `GET /api/lottery/sports/football/matches?refresh=true`
 - `POST /api/lottery/sports/football/import`
 - `GET /api/lottery/sports/football/recommendations?playType=all`
+- `POST /api/lottery/sports/football/results/import`
+- `GET /api/lottery/sports/football/model-report`
 
 ## 服务端数据目录
 
@@ -70,7 +72,26 @@ App 数据页点击 `更新数据` 后，服务端会优先读取导入目录；
 足球彩票接口优先尝试中国竞彩网公开数据；如果被安全策略拦截或网络失败，会使用：
 
 1. `server/data/football_matches.json` 缓存；
-2. `server/data/worldcup_2026_matches.json` 内置世界杯赛程兜底。
+2. openfootball 2026 世界杯 JSON，补齐开赛时间并转换为北京时间；
+3. FIFA 世界杯赛程抓取/缓存；
+4. 内置 104 场世界杯赛程兜底；
+5. `server/data/worldcup_2026_matches.json` 里已维护赔率的场次兜底。
+
+服务端会把赛程和赔率分开处理：赛程负责补齐 104 场比赛，竞彩/导入/缓存负责补赔率。没有赔率的场次仍会返回给 App 展示，但不会参与推荐生成。
+
+能自动获取或计算的数据：
+
+- 赛程和开赛时间：优先 openfootball，时间统一保存为北京时间 ISO；
+- 赛果：openfootball 有 `score` 后可通过 `POST /api/lottery/sports/football/results/sync` 同步；
+- 小组积分：服务端根据赛果自动计算；
+- 球队强弱：刷新时尝试读取 FIFA 男足排名页并缓存到 `server/data/football_team_ratings.json`；
+- 竞彩赔率：优先中国竞彩网接口，失败时使用缓存或导入文件。
+
+仍建议手工维护的数据：
+
+- `server/data/imports/football_matches.json`：竞彩接口不可用时的赔率/玩法池；
+- `server/data/imports/team_ratings.json`：如果 FIFA 排名页结构变化，可手工覆盖球队强弱；
+- `server/data/imports/football_match_facts.json`：伤停、停赛、预计首发、天气、战意、轮换等结构化赛事情报。
 
 支持玩法：
 
@@ -80,4 +101,27 @@ App 数据页点击 `更新数据` 后，服务端会优先读取导入目录；
 - `ttg`：总进球
 - `hafu`：半全场
 
-足球推荐是基于赔率隐含概率、让球、赛事阶段和球队强弱标签的实验性推荐，不包含投注、串关奖金计算、下单或中奖承诺。
+足球推荐 V1.2 使用 `poisson_v1` 结构化模型：根据球队强弱、主办/中立场和赛事阶段估算双方预期进球，再用 Poisson 比分分布推导胜平负、让球胜平负、比分、总进球、半全场概率，并和去水后的竞彩赔率概率融合。推荐不包含投注、串关奖金计算、下单或中奖承诺。
+
+V1.1 开始，服务端会额外保存足球彩票实验数据：
+
+- `server/data/football_odds_snapshots.json`：每次生成推荐时看到的赔率快照；
+- `server/data/football_recommendations.json`：服务端生成过的推荐历史；
+- `server/data/football_results.json`：手工导入的赛果；
+- `GET /api/lottery/sports/football/model-report`：根据已导入赛果统计命中数、命中率、模拟收益和平均 edge。
+
+赛果导入示例：
+
+```json
+{
+  "results": [
+    {
+      "matchId": "wc2026-001",
+      "fullTimeScore": "2:1",
+      "halfTimeScore": "1:0"
+    }
+  ]
+}
+```
+
+推荐返回会包含 `modelName`、`expectedGoals`、`fairProbability`、`modelProbability`、`edge` 和 `dataQuality`。这些字段用于解释推荐价值，不代表真实投注收益承诺。

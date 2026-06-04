@@ -383,9 +383,16 @@ fun FootballMatchCard(match: FootballMatchEntity) {
         Spacer(Modifier.height(4.dp))
         Text("${match.leagueName} · ${match.phase}", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         Text("开赛 ${match.kickoffTime} · 让球 ${match.handicap}", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+        if (match.stadium.isNotBlank() || match.city.isNotBlank()) {
+            Text(listOf(match.stadium, match.city).filter { it.isNotBlank() }.joinToString(" · "), color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+        }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-            FootballPlayTypes.allCodes.filter { match.poolsJson.contains("\"$it\"") }.forEach { code ->
+            val availablePools = FootballPlayTypes.allCodes.filter { match.poolsJson.contains("\"$it\"") }
+            if (availablePools.isEmpty()) {
+                MetaPill("暂无赔率", MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            availablePools.forEach { code ->
                 MetaPill(FootballPlayTypes.displayName(code), MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
             }
         }
@@ -400,9 +407,20 @@ fun FootballRecommendationCard(item: FootballRecommendationEntity) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             MetaPill(item.playName, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.tertiary)
             MetaPill(item.selection, MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.primary)
+            if (item.modelName.isNotBlank()) {
+                MetaPill(item.modelName, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.secondary)
+            }
         }
         Spacer(Modifier.height(8.dp))
         MetricRow("置信分", percent(item.confidence), "参考赔率", if (item.odds > 0.0) "%.2f".format(item.odds) else "-")
+        Spacer(Modifier.height(8.dp))
+        MetricRow("模型概率", percent(item.modelProbability), "公平概率", percent(item.fairProbability))
+        Spacer(Modifier.height(8.dp))
+        MetricRow("理论价值", signedPercent(item.edge), "数据质量", percent(item.dataQuality))
+        if (item.homeExpectedGoals > 0.0 || item.awayExpectedGoals > 0.0) {
+            Spacer(Modifier.height(8.dp))
+            MetricRow("主队预期进球", "%.2f".format(item.homeExpectedGoals), "客队预期进球", "%.2f".format(item.awayExpectedGoals))
+        }
         Spacer(Modifier.height(8.dp))
         parseStringArray(item.reasonsJson).take(3).forEach { reason ->
             Text(reason, color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
@@ -1179,6 +1197,8 @@ fun ChoiceButton(text: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 fun percent(value: Double): String = "${"%.2f".format(value * 100)}%"
+
+fun signedPercent(value: Double): String = "${if (value >= 0) "+" else ""}${"%.2f".format(value * 100)}%"
 
 fun money(value: Double): String = "¥${"%.2f".format(value)}"
 

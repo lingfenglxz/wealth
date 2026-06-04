@@ -2,6 +2,7 @@ package com.demo.wealth.data
 
 import androidx.room.Entity
 import androidx.room.Index
+import androidx.room.ColumnInfo
 import androidx.room.PrimaryKey
 
 @Entity(indices = [Index(value = ["issue"], unique = true)])
@@ -67,6 +68,8 @@ data class FootballMatchEntity(
     val awayTeam: String,
     val handicap: Int,
     val poolsJson: String,
+    @ColumnInfo(defaultValue = "''") val stadium: String,
+    @ColumnInfo(defaultValue = "''") val city: String,
     val source: String,
     val updatedAt: String
 )
@@ -84,8 +87,15 @@ data class FootballRecommendationEntity(
     val awayTeam: String,
     val playType: String,
     val playName: String,
+    @ColumnInfo(defaultValue = "''") val modelName: String,
     val selection: String,
     val odds: Double,
     val confidence: Double,
+    @ColumnInfo(defaultValue = "0.0") val fairProbability: Double,
+    @ColumnInfo(defaultValue = "0.0") val modelProbability: Double,
+    @ColumnInfo(defaultValue = "0.0") val edge: Double,
+    @ColumnInfo(defaultValue = "0.0") val dataQuality: Double,
+    @ColumnInfo(defaultValue = "0.0") val homeExpectedGoals: Double,
+    @ColumnInfo(defaultValue = "0.0") val awayExpectedGoals: Double,
     val reasonsJson: String
 )

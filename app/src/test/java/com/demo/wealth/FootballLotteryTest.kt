@@ -22,6 +22,8 @@ class FootballLotteryTest {
                   "homeTeam": "Mexico",
                   "awayTeam": "South Africa",
                   "handicap": 0,
+                  "stadium": "Mexico City Stadium",
+                  "city": "Mexico City",
                   "pools": {
                     "had": {"H": 1.78, "D": 3.30, "A": 4.60},
                     "hhad": {"H": 3.20, "D": 3.25, "A": 1.95}
@@ -33,8 +35,15 @@ class FootballLotteryTest {
                   "matchId": "wc2026-001",
                   "playType": "had",
                   "playName": "胜平负",
+                  "modelName": "poisson_v1",
                   "selection": "H",
+                  "odds": 1.78,
                   "confidence": 0.55,
+                  "fairProbability": 0.51,
+                  "modelProbability": 0.58,
+                  "edge": 0.0324,
+                  "dataQuality": 0.86,
+                  "expectedGoals": {"home": 1.82, "away": 0.91},
                   "reasons": ["主胜隐含概率最高"]
                 }
               ]
@@ -46,9 +55,18 @@ class FootballLotteryTest {
 
         assertEquals(1, matches.size)
         assertEquals("wc2026-001", matches.first().matchId)
+        assertEquals("Mexico City Stadium", matches.first().stadium)
+        assertEquals("Mexico City", matches.first().city)
         assertTrue(matches.first().poolsJson.contains("had"))
         assertEquals(1, recommendations.size)
         assertEquals("H", recommendations.first().selection)
+        assertEquals(0.51, recommendations.first().fairProbability, 0.0001)
+        assertEquals(0.58, recommendations.first().modelProbability, 0.0001)
+        assertEquals(0.0324, recommendations.first().edge, 0.0001)
+        assertEquals(0.86, recommendations.first().dataQuality, 0.0001)
+        assertEquals("poisson_v1", recommendations.first().modelName)
+        assertEquals(1.82, recommendations.first().homeExpectedGoals, 0.0001)
+        assertEquals(0.91, recommendations.first().awayExpectedGoals, 0.0001)
     }
 
     @Test

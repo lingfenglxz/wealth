@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         FootballMatchEntity::class,
         FootballRecommendationEntity::class
     ],
-    version = 8,
+    version = 11,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -89,6 +89,8 @@ abstract class AppDatabase : RoomDatabase() {
                         `awayTeam` TEXT NOT NULL,
                         `handicap` INTEGER NOT NULL,
                         `poolsJson` TEXT NOT NULL,
+                        `stadium` TEXT NOT NULL DEFAULT '',
+                        `city` TEXT NOT NULL DEFAULT '',
                         `source` TEXT NOT NULL,
                         `updatedAt` TEXT NOT NULL
                     )
@@ -111,13 +113,41 @@ abstract class AppDatabase : RoomDatabase() {
                         `awayTeam` TEXT NOT NULL,
                         `playType` TEXT NOT NULL,
                         `playName` TEXT NOT NULL,
+                        `modelName` TEXT NOT NULL DEFAULT '',
                         `selection` TEXT NOT NULL,
                         `odds` REAL NOT NULL,
                         `confidence` REAL NOT NULL,
+                        `fairProbability` REAL NOT NULL DEFAULT 0.0,
+                        `modelProbability` REAL NOT NULL DEFAULT 0.0,
+                        `edge` REAL NOT NULL DEFAULT 0.0,
+                        `dataQuality` REAL NOT NULL DEFAULT 0.0,
+                        `homeExpectedGoals` REAL NOT NULL DEFAULT 0.0,
+                        `awayExpectedGoals` REAL NOT NULL DEFAULT 0.0,
                         `reasonsJson` TEXT NOT NULL
                     )
                     """.trimIndent()
                 )
+            }
+        }
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `FootballRecommendationEntity` ADD COLUMN `fairProbability` REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE `FootballRecommendationEntity` ADD COLUMN `modelProbability` REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE `FootballRecommendationEntity` ADD COLUMN `edge` REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE `FootballRecommendationEntity` ADD COLUMN `dataQuality` REAL NOT NULL DEFAULT 0.0")
+            }
+        }
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `FootballMatchEntity` ADD COLUMN `stadium` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `FootballMatchEntity` ADD COLUMN `city` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `FootballRecommendationEntity` ADD COLUMN `modelName` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `FootballRecommendationEntity` ADD COLUMN `homeExpectedGoals` REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE `FootballRecommendationEntity` ADD COLUMN `awayExpectedGoals` REAL NOT NULL DEFAULT 0.0")
             }
         }
 
@@ -127,7 +157,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "wealth-lab.db"
-                ).addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                ).addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { instance = it }

@@ -74,6 +74,9 @@ interface WealthDao {
     @Query("SELECT * FROM FootballRecommendationEntity ORDER BY createdAt DESC, confidence DESC")
     fun observeFootballRecommendations(): Flow<List<FootballRecommendationEntity>>
 
+    @Query("SELECT * FROM FootballRecommendationEntity ORDER BY createdAt DESC, confidence DESC")
+    suspend fun getFootballRecommendations(): List<FootballRecommendationEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFootballRecommendations(recommendations: List<FootballRecommendationEntity>)
 

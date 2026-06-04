@@ -52,7 +52,8 @@ class ServerImportDirectoryTest(unittest.TestCase):
             with patch.object(main, "IMPORT_DIR", imports), patch.object(main, "FOOTBALL_CACHE_FILE", Path(temp_dir) / "football_cache.json"):
                 matches, source_status, _ = asyncio.run(main.get_football_matches(refresh=False))
 
-        self.assertEqual("manual-001", matches[0].matchId)
+        imported = next(match for match in matches if match.matchId == "manual-001")
+        self.assertEqual("manual-001", imported.matchId)
         self.assertEqual("import", source_status)
 
 

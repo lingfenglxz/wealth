@@ -194,8 +194,35 @@ class WealthRepository(context: Context) {
                     .put("awayTeam", it.awayTeam)
                     .put("handicap", it.handicap)
                     .put("pools", JSONObject(it.poolsJson))
+                    .put("stadium", it.stadium)
+                    .put("city", it.city)
                     .put("source", it.source)
                     .put("updatedAt", it.updatedAt))
+            }
+        })
+        root.put("footballRecommendations", JSONArray().also { array ->
+            dao.getFootballRecommendations().forEach {
+                array.put(JSONObject()
+                    .put("createdAt", it.createdAt)
+                    .put("matchId", it.matchId)
+                    .put("matchNum", it.matchNum)
+                    .put("leagueName", it.leagueName)
+                    .put("phase", it.phase)
+                    .put("kickoffTime", it.kickoffTime)
+                    .put("homeTeam", it.homeTeam)
+                    .put("awayTeam", it.awayTeam)
+                    .put("playType", it.playType)
+                    .put("playName", it.playName)
+                    .put("modelName", it.modelName)
+                    .put("selection", it.selection)
+                    .put("odds", it.odds)
+                    .put("confidence", it.confidence)
+                    .put("fairProbability", it.fairProbability)
+                    .put("modelProbability", it.modelProbability)
+                    .put("edge", it.edge)
+                    .put("dataQuality", it.dataQuality)
+                    .put("expectedGoals", JSONObject().put("home", it.homeExpectedGoals).put("away", it.awayExpectedGoals))
+                    .put("reasons", JSONArray(it.reasonsJson)))
             }
         })
         return root.toString(2)
@@ -252,6 +279,12 @@ class WealthRepository(context: Context) {
         })
         root.optJSONArray("footballMatches")?.let { matches ->
             importFootballJson(JSONObject().put("matches", matches).toString())
+        }
+        root.optJSONArray("footballRecommendations")?.let { recommendations ->
+            dao.clearFootballRecommendations()
+            dao.insertFootballRecommendations(
+                FootballLotteryParser.parseRecommendations(JSONObject().put("recommendations", recommendations).toString())
+            )
         }
         settleResolvedPredictions()
     }

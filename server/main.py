@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 import math
 import random
+import re
 from collections import Counter
 from dataclasses import asdict, dataclass
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from statistics import mean
 from typing import Any
@@ -21,9 +22,18 @@ CACHE_FILE = DATA_DIR / "ssq_draws.json"
 IMPORT_DIR = DATA_DIR / "imports"
 SSQ_STATE_FILE = DATA_DIR / "ssq_state.json"
 FOOTBALL_CACHE_FILE = DATA_DIR / "football_matches.json"
+FOOTBALL_ODDS_SNAPSHOT_FILE = DATA_DIR / "football_odds_snapshots.json"
+FOOTBALL_RECOMMENDATION_FILE = DATA_DIR / "football_recommendations.json"
+FOOTBALL_RESULTS_FILE = DATA_DIR / "football_results.json"
+FOOTBALL_TEAM_RATINGS_FILE = DATA_DIR / "football_team_ratings.json"
+FOOTBALL_MATCH_FACTS_FILE = DATA_DIR / "football_match_facts.json"
 WORLDCUP_FALLBACK_FILE = DATA_DIR / "worldcup_2026_matches.json"
+WORLDCUP_SCHEDULE_FILE = DATA_DIR / "worldcup_2026_schedule.json"
 CWL_URL = "https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice"
 SPORTTERY_FOOTBALL_URL = "https://webapi.sporttery.cn/gateway/jc/football/getMatchCalculatorV1.qry"
+FIFA_WORLDCUP_SCHEDULE_URL = "https://https-www-fifa.com/en/articles/View-the-FIFA-World-Cup-26%E2%84%A2-match-schedule"
+OPENFOOTBALL_WORLDCUP_URL = "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json"
+FIFA_RANKINGS_URL = "https://inside.fifa.com/fifa-world-ranking/men"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
@@ -71,6 +81,8 @@ class FootballMatch:
     handicap: int
     teamStrength: dict[str, float]
     pools: dict[str, dict[str, float]]
+    stadium: str
+    city: str
     source: str
     updatedAt: str
 
@@ -156,11 +168,13 @@ async def football_matches(
     limit: int = Query(default=104, ge=1, le=500),
 ) -> dict[str, Any]:
     matches, source_status, source_message = await get_football_matches(refresh)
+    results = load_football_results()
     return {
         "sourceStatus": source_status,
         "sourceMessage": source_message,
         "count": min(len(matches), limit),
         "matches": [asdict(match) for match in matches[:limit]],
+        "standings": build_football_standings(matches, results),
         "supportedPlayTypes": FOOTBALL_PLAY_TYPES,
     }
 
@@ -182,7 +196,10 @@ async def football_recommendations(
 ) -> dict[str, Any]:
     matches, source_status, source_message = await get_football_matches(refresh)
     requested = normalize_play_types(playType)
-    recommendations = build_football_recommendations(matches, requested, limit)
+    generated_at = utc_now()
+    save_football_odds_snapshots(matches, source_status, generated_at)
+    recommendations = build_football_recommendations(matches, requested, limit, source_status, generated_at)
+    save_football_recommendations(recommendations)
     return {
         "sourceStatus": source_status,
         "sourceMessage": source_message,
@@ -190,6 +207,33 @@ async def football_recommendations(
         "recommendations": recommendations,
         "supportedPlayTypes": FOOTBALL_PLAY_TYPES,
     }
+
+
+@app.post("/api/lottery/sports/football/results/import")
+def import_football_results(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    results = parse_football_results_payload(payload)
+    if not results:
+        return {"sourceStatus": "empty", "sourceMessage": "导入内容没有有效赛果", "count": 0}
+    merged = {item["matchId"]: item for item in load_football_results()}
+    merged.update({item["matchId"]: item for item in results})
+    save_json_list(FOOTBALL_RESULTS_FILE, sorted(merged.values(), key=lambda item: item.get("matchId", "")))
+    return {"sourceStatus": "import", "sourceMessage": "已导入足球赛果", "count": len(results)}
+
+
+@app.post("/api/lottery/sports/football/results/sync")
+async def sync_football_results() -> dict[str, Any]:
+    results = await fetch_openfootball_results()
+    if not results:
+        return {"sourceStatus": "empty", "sourceMessage": "未从网络源获取到已完赛赛果", "count": 0}
+    merged = {item["matchId"]: item for item in load_football_results()}
+    merged.update({item["matchId"]: item for item in results})
+    save_json_list(FOOTBALL_RESULTS_FILE, sorted(merged.values(), key=lambda item: item.get("matchId", "")))
+    return {"sourceStatus": "openfootball", "sourceMessage": "已同步 openfootball 赛果", "count": len(results)}
+
+
+@app.get("/api/lottery/sports/football/model-report")
+def football_model_report() -> dict[str, Any]:
+    return build_football_model_report(load_football_recommendation_history(), load_football_results())
 
 
 async def get_draws(limit: int, refresh: bool) -> list[SsqDraw]:
@@ -480,24 +524,30 @@ FOOTBALL_PLAY_TYPES = {
 async def get_football_matches(refresh: bool) -> tuple[list[FootballMatch], str, str]:
     imported = read_football_file(IMPORT_DIR / "football_matches.json", "import")
     if imported:
-        save_football_cache(imported)
-        return imported, "import", "使用服务端导入目录中的足球赛事"
+        matches = merge_schedule_and_odds(load_worldcup_schedule_fallback(), imported, include_extra=True)
+        matches = apply_team_ratings(matches, load_team_ratings())
+        save_football_cache(matches)
+        return matches, "import", "使用服务端导入目录中的足球赛事，并补齐世界杯赛程"
     if refresh:
         try:
             official = await fetch_sporttery_football_matches()
             if official:
-                save_football_cache(official)
-                return official, "official", "官方竞彩数据更新成功"
+                schedule = await fetch_openfootball_worldcup_matches() or await fetch_worldcup_schedule_matches()
+                matches = merge_schedule_and_odds(schedule or load_worldcup_schedule_fallback(), official, include_extra=False)
+                ratings = await fetch_fifa_team_ratings()
+                matches = apply_team_ratings(matches, ratings or load_team_ratings())
+                save_football_cache(matches)
+                return matches, "official", "官方竞彩数据更新成功，并补齐世界杯赛程"
         except Exception as error:
             cached = load_football_cache()
             if cached:
-                return cached, "cache", f"官方竞彩抓取失败，使用缓存：{short_error(error)}"
-            fallback = load_worldcup_fallback()
+                return merge_schedule_and_odds(cached, load_worldcup_fallback(), include_extra=False), "cache", f"官方竞彩抓取失败，使用缓存：{short_error(error)}"
+            fallback = apply_team_ratings(merge_schedule_and_odds(load_worldcup_schedule_fallback(), load_worldcup_fallback(), include_extra=False), load_team_ratings())
             return fallback, "fallback", f"官方竞彩抓取失败，使用内置世界杯赛程：{short_error(error)}"
     cached = load_football_cache()
     if cached:
-        return cached, "cache", "使用本地足球赛事缓存"
-    fallback = load_worldcup_fallback()
+        return merge_schedule_and_odds(cached, load_worldcup_fallback(), include_extra=False), "cache", "使用本地足球赛事缓存"
+    fallback = apply_team_ratings(merge_schedule_and_odds(load_worldcup_schedule_fallback(), load_worldcup_fallback(), include_extra=False), load_team_ratings())
     return fallback, "fallback", "使用内置世界杯赛程"
 
 
@@ -510,12 +560,63 @@ async def fetch_sporttery_football_matches() -> list[FootballMatch]:
     return parse_sporttery_matches(payload)
 
 
+async def fetch_worldcup_schedule_matches() -> list[FootballMatch]:
+    async with httpx.AsyncClient(timeout=12.0, headers=HEADERS, follow_redirects=True) as client:
+        response = await client.get(FIFA_WORLDCUP_SCHEDULE_URL)
+        response.raise_for_status()
+        text = response.text
+    matches = parse_fifa_schedule_page(text)
+    if matches:
+        save_football_schedule_cache(matches)
+    return matches
+
+
+async def fetch_openfootball_worldcup_payload() -> dict[str, Any]:
+    async with httpx.AsyncClient(timeout=12.0, headers=HEADERS, follow_redirects=True) as client:
+        response = await client.get(OPENFOOTBALL_WORLDCUP_URL)
+        response.raise_for_status()
+        return response.json()
+
+
+async def fetch_openfootball_worldcup_matches() -> list[FootballMatch]:
+    payload = await fetch_openfootball_worldcup_payload()
+    matches = parse_openfootball_worldcup(payload)
+    if matches:
+        save_football_schedule_cache(matches)
+    results = parse_openfootball_results(payload)
+    if results:
+        merged = {item["matchId"]: item for item in load_football_results()}
+        merged.update({item["matchId"]: item for item in results})
+        save_json_list(FOOTBALL_RESULTS_FILE, sorted(merged.values(), key=lambda item: item.get("matchId", "")))
+    return matches
+
+
+async def fetch_openfootball_results() -> list[dict[str, Any]]:
+    payload = await fetch_openfootball_worldcup_payload()
+    return parse_openfootball_results(payload)
+
+
+async def fetch_fifa_team_ratings() -> dict[str, dict[str, Any]]:
+    async with httpx.AsyncClient(timeout=12.0, headers=HEADERS, follow_redirects=True) as client:
+        response = await client.get(FIFA_RANKINGS_URL)
+        response.raise_for_status()
+        ratings = parse_fifa_rankings_page(response.text)
+    if ratings:
+        save_json_list(FOOTBALL_TEAM_RATINGS_FILE, [{"team": team, **data} for team, data in ratings.items()])
+    return ratings
+
+
 def load_football_cache() -> list[FootballMatch]:
     return read_football_file(FOOTBALL_CACHE_FILE, "cache")
 
 
 def load_worldcup_fallback() -> list[FootballMatch]:
     return read_football_file(WORLDCUP_FALLBACK_FILE, "fallback")
+
+
+def load_worldcup_schedule_fallback() -> list[FootballMatch]:
+    from_file = read_football_file(WORLDCUP_SCHEDULE_FILE, "schedule")
+    return from_file or build_static_worldcup_schedule()
 
 
 def read_football_file(path: Path, source: str) -> list[FootballMatch]:
@@ -536,10 +637,439 @@ def save_football_cache(matches: list[FootballMatch]) -> None:
     )
 
 
+def save_football_schedule_cache(matches: list[FootballMatch]) -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    WORLDCUP_SCHEDULE_FILE.write_text(
+        json.dumps({"matches": [asdict(match) for match in matches]}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
 def parse_football_payload(payload: dict[str, Any], source: str) -> list[FootballMatch]:
     rows = payload.get("matches") or payload.get("value", {}).get("matches") or []
     matches = [normalize_football_match(item, source) for item in rows if isinstance(item, dict)]
     return sorted((match for match in matches if match), key=lambda item: item.kickoffTime)
+
+
+def parse_openfootball_worldcup(payload: dict[str, Any]) -> list[FootballMatch]:
+    rows = payload.get("matches") or []
+    matches: list[FootballMatch] = []
+    for index, item in enumerate(rows, start=1):
+        if not isinstance(item, dict):
+            continue
+        home = normalize_openfootball_team(str(item.get("team1") or ""))
+        away = normalize_openfootball_team(str(item.get("team2") or ""))
+        kickoff = openfootball_kickoff_beijing(str(item.get("date") or ""), str(item.get("time") or ""))
+        if not home or not away or not kickoff:
+            continue
+        match_num = str(index).zfill(3)
+        ground = str(item.get("ground") or "")
+        stadium, city = split_openfootball_ground(ground)
+        matches.append(
+            FootballMatch(
+                matchId=f"wc2026-{match_num}",
+                matchNum=match_num,
+                leagueName="FIFA World Cup 2026",
+                phase=str(item.get("group") or item.get("round") or "World Cup"),
+                kickoffTime=kickoff,
+                homeTeam=home,
+                awayTeam=away,
+                neutralVenue=not home_has_host_advantage(home, city),
+                handicap=0,
+                teamStrength=infer_team_strength(home, away),
+                pools={},
+                stadium=stadium,
+                city=city,
+                source="openfootball",
+                updatedAt=date.today().isoformat(),
+            )
+        )
+    return matches
+
+
+def parse_openfootball_results(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for index, item in enumerate(payload.get("matches") or [], start=1):
+        if not isinstance(item, dict):
+            continue
+        score = item.get("score") if isinstance(item.get("score"), dict) else {}
+        full_time = score.get("ft")
+        if not isinstance(full_time, list) or len(full_time) != 2:
+            continue
+        half_time = score.get("ht")
+        results.append(
+            {
+                "matchId": f"wc2026-{index:03d}",
+                "fullTimeScore": f"{safe_int(full_time[0])}:{safe_int(full_time[1])}",
+                "halfTimeScore": f"{safe_int(half_time[0])}:{safe_int(half_time[1])}" if isinstance(half_time, list) and len(half_time) == 2 else "",
+                "source": "openfootball",
+                "updatedAt": utc_now(),
+            }
+        )
+    return results
+
+
+def openfootball_kickoff_beijing(date_value: str, time_value: str) -> str:
+    date_value = date_value.strip()
+    time_value = time_value.strip()
+    if not date_value:
+        return ""
+    match = re.match(r"^(\d{1,2}):(\d{2})(?:\s+UTC([+-]\d{1,2}))?$", time_value)
+    if not match:
+        return f"{date_value}T00:00:00+08:00"
+    hour = int(match.group(1))
+    minute = int(match.group(2))
+    offset_hours = int(match.group(3) or "0")
+    source_time = datetime.fromisoformat(f"{date_value}T{hour:02d}:{minute:02d}:00").replace(tzinfo=timezone(timedelta(hours=offset_hours)))
+    return source_time.astimezone(timezone(timedelta(hours=8))).isoformat()
+
+
+def split_openfootball_ground(ground: str) -> tuple[str, str]:
+    cleaned = ground.strip()
+    if not cleaned:
+        return "", ""
+    if "," in cleaned:
+        stadium, city = [part.strip() for part in cleaned.split(",", 1)]
+        return stadium, city
+    city = cleaned
+    if "(" in cleaned and ")" in cleaned:
+        city = cleaned.split("(", 1)[0].strip()
+    stadium = next((name for name, mapped_city in STADIUM_CITY.items() if mapped_city == city), cleaned)
+    return stadium, city
+
+
+def normalize_openfootball_team(name: str) -> str:
+    return {
+        "South Korea": "Korea Republic",
+        "Czech Republic": "Czechia",
+        "Ivory Coast": "Cote d'Ivoire",
+        "Cape Verde": "Cabo Verde",
+    }.get(name.strip(), name.strip())
+
+
+def parse_fifa_rankings_page(text: str) -> dict[str, dict[str, Any]]:
+    rows: dict[str, dict[str, Any]] = {}
+    pattern = re.compile(
+        r'"rank"\s*:\s*(\d+).*?"name"\s*:\s*"([^"]+)".*?"(?:totalPoints|points)"\s*:\s*([0-9.]+)',
+        re.DOTALL,
+    )
+    matches = pattern.findall(text)
+    if not matches:
+        pattern = re.compile(
+            r'"name"\s*:\s*"([^"]+)".*?"rank"\s*:\s*(\d+).*?"(?:totalPoints|points)"\s*:\s*([0-9.]+)',
+            re.DOTALL,
+        )
+        matches = [(rank, name, points) for name, rank, points in pattern.findall(text)]
+    for rank_text, name, points_text in matches:
+        rank = safe_int(rank_text)
+        points = safe_float(points_text) or 0.0
+        if not name or not rank:
+            continue
+        rows[normalize_openfootball_team(name)] = {
+            "rank": rank,
+            "points": points,
+            "strength": round(max(0.35, min(0.99, 0.99 - (rank - 1) / 240)), 4),
+            "source": "fifa_ranking",
+            "updatedAt": date.today().isoformat(),
+        }
+    return rows
+
+
+def load_team_ratings() -> dict[str, dict[str, Any]]:
+    imported = load_json_list(IMPORT_DIR / "team_ratings.json")
+    rows = imported or load_json_list(FOOTBALL_TEAM_RATINGS_FILE)
+    return {str(item.get("team")): item for item in rows if item.get("team")}
+
+
+def apply_team_ratings(matches: list[FootballMatch], ratings: dict[str, dict[str, Any]]) -> list[FootballMatch]:
+    if not ratings:
+        return matches
+    updated: list[FootballMatch] = []
+    for match in matches:
+        home_rating = ratings.get(match.homeTeam)
+        away_rating = ratings.get(match.awayTeam)
+        strength = dict(match.teamStrength)
+        if home_rating:
+            strength["home"] = safe_float(home_rating.get("strength")) or strength.get("home", 0.5)
+        if away_rating:
+            strength["away"] = safe_float(away_rating.get("strength")) or strength.get("away", 0.5)
+        updated.append(FootballMatch(**{**asdict(match), "teamStrength": strength}))
+    return updated
+
+
+def build_football_standings(matches: list[FootballMatch], results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    match_by_id = {match.matchId: match for match in matches}
+    table: dict[tuple[str, str], dict[str, Any]] = {}
+    for result in results:
+        match = match_by_id.get(str(result.get("matchId")))
+        score = parse_score(str(result.get("fullTimeScore") or ""))
+        if not match or not score or not match.phase.startswith("Group"):
+            continue
+        home_goals, away_goals = score
+        for team, goals_for, goals_against in [
+            (match.homeTeam, home_goals, away_goals),
+            (match.awayTeam, away_goals, home_goals),
+        ]:
+            key = (match.phase, team)
+            table.setdefault(
+                key,
+                {"group": match.phase, "team": team, "played": 0, "wins": 0, "draws": 0, "losses": 0, "goalsFor": 0, "goalsAgainst": 0, "goalDifference": 0, "points": 0},
+            )
+            row = table[key]
+            row["played"] += 1
+            row["goalsFor"] += goals_for
+            row["goalsAgainst"] += goals_against
+            row["goalDifference"] = row["goalsFor"] - row["goalsAgainst"]
+            if goals_for > goals_against:
+                row["wins"] += 1
+                row["points"] += 3
+            elif goals_for == goals_against:
+                row["draws"] += 1
+                row["points"] += 1
+            else:
+                row["losses"] += 1
+    return sorted(table.values(), key=lambda item: (item["group"], -item["points"], -item["goalDifference"], -item["goalsFor"], item["team"]))
+
+
+STADIUM_CITY = {
+    "Mexico City Stadium": "Mexico City",
+    "Estadio Azteca Mexico City": "Mexico City",
+    "Estadio Guadalajara": "Guadalajara",
+    "Estadio Akron": "Guadalajara",
+    "Toronto Stadium": "Toronto",
+    "BMO Field": "Toronto",
+    "Los Angeles Stadium": "Los Angeles",
+    "SoFi Stadium": "Los Angeles",
+    "Boston Stadium": "Boston",
+    "Gillette Stadium": "Boston",
+    "BC Place Vancouver": "Vancouver",
+    "BC Place": "Vancouver",
+    "New York New Jersey Stadium": "New York / New Jersey",
+    "MetLife Stadium": "New York / New Jersey",
+    "San Francisco Bay Area Stadium": "San Francisco Bay Area",
+    "Levi's Stadium": "San Francisco Bay Area",
+    "Philadelphia Stadium": "Philadelphia",
+    "Lincoln Financial Field": "Philadelphia",
+    "Houston Stadium": "Houston",
+    "NRG Stadium": "Houston",
+    "Dallas Stadium": "Dallas",
+    "AT&T Stadium": "Dallas",
+    "Estadio Monterrey": "Monterrey",
+    "Estadio BBVA": "Monterrey",
+    "Miami Stadium": "Miami",
+    "Hard Rock Stadium": "Miami",
+    "Atlanta Stadium": "Atlanta",
+    "Mercedes-Benz Stadium": "Atlanta",
+    "Seattle Stadium": "Seattle",
+    "Lumen Field": "Seattle",
+    "Kansas City Stadium": "Kansas City",
+    "GEHA Field at Arrowhead Stadium": "Kansas City",
+}
+
+
+STATIC_WORLDCUP_2026_SCHEDULE = """
+001|2026-06-11|Group A|Mexico|South Africa|Mexico City Stadium
+002|2026-06-11|Group A|Korea Republic|Czechia|Estadio Guadalajara
+003|2026-06-12|Group B|Canada|Bosnia and Herzegovina|Toronto Stadium
+004|2026-06-12|Group D|USA|Paraguay|Los Angeles Stadium
+005|2026-06-13|Group C|Haiti|Scotland|Boston Stadium
+006|2026-06-13|Group D|Australia|Turkiye|BC Place Vancouver
+007|2026-06-13|Group C|Brazil|Morocco|New York New Jersey Stadium
+008|2026-06-13|Group B|Qatar|Switzerland|San Francisco Bay Area Stadium
+009|2026-06-14|Group E|Cote d'Ivoire|Ecuador|Philadelphia Stadium
+010|2026-06-14|Group E|Germany|Curacao|Houston Stadium
+011|2026-06-14|Group F|Netherlands|Japan|Dallas Stadium
+012|2026-06-14|Group F|Sweden|Tunisia|Estadio Monterrey
+013|2026-06-15|Group H|Saudi Arabia|Uruguay|Miami Stadium
+014|2026-06-15|Group H|Spain|Cabo Verde|Atlanta Stadium
+015|2026-06-15|Group G|Iran|New Zealand|Los Angeles Stadium
+016|2026-06-15|Group G|Belgium|Egypt|Seattle Stadium
+017|2026-06-16|Group I|France|Senegal|New York New Jersey Stadium
+018|2026-06-16|Group I|Iraq|Norway|Boston Stadium
+019|2026-06-16|Group J|Argentina|Algeria|Kansas City Stadium
+020|2026-06-16|Group J|Austria|Jordan|San Francisco Bay Area Stadium
+021|2026-06-17|Group L|Ghana|Panama|Toronto Stadium
+022|2026-06-17|Group L|England|Croatia|Dallas Stadium
+023|2026-06-17|Group K|Portugal|DR Congo|Houston Stadium
+024|2026-06-17|Group K|Uzbekistan|Colombia|Mexico City Stadium
+025|2026-06-18|Group A|Czechia|South Africa|Atlanta Stadium
+026|2026-06-18|Group B|Switzerland|Bosnia and Herzegovina|Los Angeles Stadium
+027|2026-06-18|Group B|Canada|Qatar|BC Place Vancouver
+028|2026-06-18|Group A|Mexico|Korea Republic|Estadio Guadalajara
+029|2026-06-19|Group C|Brazil|Haiti|Philadelphia Stadium
+030|2026-06-19|Group C|Scotland|Morocco|Boston Stadium
+031|2026-06-19|Group D|Turkiye|Paraguay|San Francisco Bay Area Stadium
+032|2026-06-19|Group D|USA|Australia|Seattle Stadium
+033|2026-06-20|Group E|Germany|Cote d'Ivoire|Toronto Stadium
+034|2026-06-20|Group E|Ecuador|Curacao|Kansas City Stadium
+035|2026-06-20|Group F|Netherlands|Sweden|Houston Stadium
+036|2026-06-20|Group F|Tunisia|Japan|Estadio Monterrey
+037|2026-06-21|Group H|Uruguay|Cabo Verde|Miami Stadium
+038|2026-06-21|Group H|Spain|Saudi Arabia|Atlanta Stadium
+039|2026-06-21|Group G|Belgium|Iran|Los Angeles Stadium
+040|2026-06-21|Group G|New Zealand|Egypt|BC Place Vancouver
+041|2026-06-22|Group I|Norway|Senegal|New York New Jersey Stadium
+042|2026-06-22|Group I|France|Iraq|Philadelphia Stadium
+043|2026-06-22|Group J|Argentina|Austria|Dallas Stadium
+044|2026-06-22|Group J|Jordan|Algeria|San Francisco Bay Area Stadium
+045|2026-06-23|Group L|England|Ghana|Boston Stadium
+046|2026-06-23|Group L|Panama|Croatia|Toronto Stadium
+047|2026-06-23|Group K|Portugal|Uzbekistan|Houston Stadium
+048|2026-06-23|Group K|Colombia|DR Congo|Estadio Guadalajara
+049|2026-06-24|Group C|Scotland|Brazil|Miami Stadium
+050|2026-06-24|Group C|Morocco|Haiti|Atlanta Stadium
+051|2026-06-24|Group B|Switzerland|Canada|BC Place Vancouver
+052|2026-06-24|Group B|Bosnia and Herzegovina|Qatar|Seattle Stadium
+053|2026-06-24|Group A|Czechia|Mexico|Mexico City Stadium
+054|2026-06-24|Group A|South Africa|Korea Republic|Estadio Monterrey
+055|2026-06-25|Group E|Curacao|Cote d'Ivoire|Philadelphia Stadium
+056|2026-06-25|Group E|Ecuador|Germany|New York New Jersey Stadium
+057|2026-06-25|Group F|Japan|Sweden|Dallas Stadium
+058|2026-06-25|Group F|Tunisia|Netherlands|Kansas City Stadium
+059|2026-06-25|Group D|Turkiye|USA|Los Angeles Stadium
+060|2026-06-25|Group D|Paraguay|Australia|San Francisco Bay Area Stadium
+061|2026-06-26|Group I|Norway|France|Boston Stadium
+062|2026-06-26|Group I|Senegal|Iraq|Toronto Stadium
+063|2026-06-26|Group G|Egypt|Iran|Seattle Stadium
+064|2026-06-26|Group G|New Zealand|Belgium|BC Place Vancouver
+065|2026-06-26|Group H|Cabo Verde|Saudi Arabia|Houston Stadium
+066|2026-06-26|Group H|Uruguay|Spain|Estadio Guadalajara
+067|2026-06-27|Group L|Panama|England|New York New Jersey Stadium
+068|2026-06-27|Group L|Croatia|Ghana|Philadelphia Stadium
+069|2026-06-27|Group J|Algeria|Austria|Kansas City Stadium
+070|2026-06-27|Group J|Jordan|Argentina|Dallas Stadium
+071|2026-06-27|Group K|Colombia|Portugal|Miami Stadium
+072|2026-06-27|Group K|DR Congo|Uzbekistan|Atlanta Stadium
+073|2026-06-28|Round of 32|Group A Runners Up|Group B Runners Up|Los Angeles Stadium
+074|2026-06-29|Round of 32|Group E Winners|Group A/B/C/D/F 3rd Place|Boston Stadium
+075|2026-06-29|Round of 32|Group F Winners|Group C Runners Up|Estadio Monterrey
+076|2026-06-29|Round of 32|Group C Winners|Group F Runners Up|Houston Stadium
+077|2026-06-30|Round of 32|Group I Winners|Group C/D/F/G/H 3rd Place|New York New Jersey Stadium
+078|2026-06-30|Round of 32|Group E Runners Up|Group I Runners Up|Dallas Stadium
+079|2026-06-30|Round of 32|Group A Winners|Group C/E/F/H/I 3rd Place|Mexico City Stadium
+080|2026-07-01|Round of 32|Group L Winners|Group E/H/I/J/K 3rd Place|Atlanta Stadium
+081|2026-07-01|Round of 32|Group D Winners|Group B/E/F/I/J 3rd Place|San Francisco Bay Area Stadium
+082|2026-07-01|Round of 32|Group G Winners|Group A/E/H/I/J 3rd Place|Seattle Stadium
+083|2026-07-02|Round of 32|Group K Runners Up|Group L Runners Up|Toronto Stadium
+084|2026-07-02|Round of 32|Group H Winners|Group J Runners Up|Los Angeles Stadium
+085|2026-07-02|Round of 32|Group B Winners|Group E/F/G/I/J 3rd Place|BC Place Vancouver
+086|2026-07-03|Round of 32|Group J Winners|Group H Runners Up|Miami Stadium
+087|2026-07-03|Round of 32|Group K Winners|Group D/E/I/J/L 3rd Place|Kansas City Stadium
+088|2026-07-03|Round of 32|Group D Runners Up|Group G Runners Up|Dallas Stadium
+089|2026-07-04|Round of 16|Match 74 Winner|Match 77 Winner|Philadelphia Stadium
+090|2026-07-04|Round of 16|Match 73 Winner|Match 75 Winner|Houston Stadium
+091|2026-07-05|Round of 16|Match 76 Winner|Match 78 Winner|New York New Jersey Stadium
+092|2026-07-05|Round of 16|Match 79 Winner|Match 80 Winner|Mexico City Stadium
+093|2026-07-06|Round of 16|Match 83 Winner|Match 84 Winner|Dallas Stadium
+094|2026-07-06|Round of 16|Match 81 Winner|Match 82 Winner|Seattle Stadium
+095|2026-07-07|Round of 16|Match 86 Winner|Match 88 Winner|Atlanta Stadium
+096|2026-07-07|Round of 16|Match 85 Winner|Match 87 Winner|BC Place Vancouver
+097|2026-07-09|Quarter-final|Match 89 Winner|Match 90 Winner|Boston Stadium
+098|2026-07-10|Quarter-final|Match 93 Winner|Match 94 Winner|Los Angeles Stadium
+099|2026-07-11|Quarter-final|Match 91 Winner|Match 92 Winner|Miami Stadium
+100|2026-07-11|Quarter-final|Match 95 Winner|Match 96 Winner|Kansas City Stadium
+101|2026-07-14|Semi-final|Match 97 Winner|Match 98 Winner|Dallas Stadium
+102|2026-07-15|Semi-final|Match 99 Winner|Match 100 Winner|Atlanta Stadium
+103|2026-07-18|Third-place|Match 101 Loser|Match 102 Loser|Miami Stadium
+104|2026-07-19|Final|Match 101 Winner|Match 102 Winner|New York New Jersey Stadium
+""".strip()
+
+
+def build_static_worldcup_schedule() -> list[FootballMatch]:
+    matches: list[FootballMatch] = []
+    for row in STATIC_WORLDCUP_2026_SCHEDULE.splitlines():
+        match_num, kickoff, phase, home, away, stadium = row.split("|")
+        city = STADIUM_CITY.get(stadium, "")
+        matches.append(
+            FootballMatch(
+                matchId=f"wc2026-{match_num}",
+                matchNum=match_num,
+                leagueName="FIFA World Cup 2026",
+                phase=phase,
+                kickoffTime=kickoff,
+                homeTeam=home,
+                awayTeam=away,
+                neutralVenue=not home_has_host_advantage(home, city),
+                handicap=0,
+                teamStrength=infer_team_strength(home, away),
+                pools={},
+                stadium=stadium,
+                city=city,
+                source="schedule",
+                updatedAt=date.today().isoformat(),
+            )
+        )
+    return matches
+
+
+def parse_fifa_schedule_page(text: str) -> list[FootballMatch]:
+    date_by_match: dict[str, str] = {}
+    current_date = ""
+    month_numbers = {
+        "June": "06",
+        "July": "07",
+    }
+    for raw_line in text.splitlines():
+        line = re.sub(r"\s+", " ", raw_line).strip()
+        date_match = re.search(r"(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), (\d{1,2}) (June|July) 2026", line)
+        if date_match:
+            current_date = f"2026-{month_numbers[date_match.group(2)]}-{int(date_match.group(1)):02d}"
+            continue
+        match = re.search(r"Match\s+(\d{1,3}).*?(?:-|–)\s*([^–-]+)$", line)
+        if match and current_date:
+            date_by_match[match.group(1).zfill(3)] = current_date
+    if len(date_by_match) < 72:
+        return []
+    schedule = build_static_worldcup_schedule()
+    updated: list[FootballMatch] = []
+    for match in schedule:
+        updated.append(
+            FootballMatch(
+                **{
+                    **asdict(match),
+                    "kickoffTime": date_by_match.get(match.matchNum, match.kickoffTime),
+                    "source": "fifa_schedule",
+                    "updatedAt": date.today().isoformat(),
+                }
+            )
+        )
+    return updated
+
+
+def home_has_host_advantage(home: str, city: str) -> bool:
+    if home == "Mexico" and city in {"Mexico City", "Guadalajara", "Monterrey"}:
+        return True
+    if home == "Canada" and city in {"Toronto", "Vancouver"}:
+        return True
+    return home == "USA" and city in {"Los Angeles", "Seattle"}
+
+
+def merge_schedule_and_odds(schedule: list[FootballMatch], odds_matches: list[FootballMatch], include_extra: bool = True) -> list[FootballMatch]:
+    by_num = {match.matchNum.zfill(3): match for match in schedule}
+    for odds in odds_matches:
+        key = odds.matchNum.zfill(3)
+        base = by_num.get(key)
+        if base:
+            by_num[key] = FootballMatch(
+                matchId=base.matchId or odds.matchId,
+                matchNum=base.matchNum,
+                leagueName=base.leagueName or odds.leagueName,
+                phase=base.phase or odds.phase,
+                kickoffTime=base.kickoffTime or odds.kickoffTime,
+                homeTeam=base.homeTeam or odds.homeTeam,
+                awayTeam=base.awayTeam or odds.awayTeam,
+                neutralVenue=base.neutralVenue,
+                handicap=odds.handicap,
+                teamStrength=odds.teamStrength or base.teamStrength,
+                pools=odds.pools,
+                stadium=base.stadium or odds.stadium,
+                city=base.city or odds.city,
+                source=odds.source,
+                updatedAt=max(base.updatedAt, odds.updatedAt),
+            )
+        elif include_extra:
+            by_num[key] = odds
+    return sorted(by_num.values(), key=lambda item: (item.kickoffTime, item.matchNum))
 
 
 def parse_sporttery_matches(payload: dict[str, Any]) -> list[FootballMatch]:
@@ -565,6 +1095,8 @@ def parse_sporttery_matches(payload: dict[str, Any]) -> list[FootballMatch]:
                     handicap=safe_int(item.get("goalLine")),
                     teamStrength=infer_team_strength(str(item.get("homeTeamAllName") or ""), str(item.get("awayTeamAllName") or "")),
                     pools=pools,
+                    stadium=str(item.get("venue") or item.get("stadium") or ""),
+                    city=str(item.get("city") or ""),
                     source="official",
                     updatedAt=date.today().isoformat(),
                 )
@@ -595,7 +1127,7 @@ def normalize_football_match(item: dict[str, Any], source: str) -> FootballMatch
     away = str(item.get("awayTeam") or "").strip()
     kickoff = str(item.get("kickoffTime") or item.get("date") or "").strip()
     pools = normalize_pools(item.get("pools") or {})
-    if not match_id or not home or not away or not kickoff or not pools:
+    if not match_id or not home or not away or not kickoff:
         return None
     strength = item.get("teamStrength") if isinstance(item.get("teamStrength"), dict) else infer_team_strength(home, away)
     return FootballMatch(
@@ -610,6 +1142,8 @@ def normalize_football_match(item: dict[str, Any], source: str) -> FootballMatch
         handicap=safe_int(item.get("handicap")),
         teamStrength={"home": float(strength.get("home", 0.5)), "away": float(strength.get("away", 0.5))},
         pools=pools,
+        stadium=str(item.get("stadium") or item.get("venue") or ""),
+        city=str(item.get("city") or ""),
         source=str(item.get("source") or source),
         updatedAt=str(item.get("updatedAt") or date.today().isoformat()),
     )
@@ -636,16 +1170,26 @@ def compact_odds(values: dict[str, Any]) -> dict[str, float]:
     return odds
 
 
-def build_football_recommendations(matches: list[FootballMatch], play_types: list[str], limit: int) -> list[dict[str, Any]]:
+def build_football_recommendations(
+    matches: list[FootballMatch],
+    play_types: list[str],
+    limit: int,
+    source_status: str = "unknown",
+    generated_at: str | None = None,
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    created_at = generated_at or utc_now()
     for match in matches:
         for play_type in play_types:
             odds = match.pools.get(play_type)
             if not odds:
                 continue
-            selection, confidence = select_football_pick(match, play_type, odds)
+            profile = build_match_model_profile(match)
+            selection, metrics = select_football_pick(match, play_type, odds, source_status, profile)
             rows.append(
                 {
+                    "generatedAt": created_at,
+                    "modelName": profile["modelName"],
                     "matchId": match.matchId,
                     "matchNum": match.matchNum,
                     "leagueName": match.leagueName,
@@ -653,12 +1197,23 @@ def build_football_recommendations(matches: list[FootballMatch], play_types: lis
                     "kickoffTime": match.kickoffTime,
                     "homeTeam": match.homeTeam,
                     "awayTeam": match.awayTeam,
+                    "handicap": match.handicap,
                     "playType": play_type,
                     "playName": FOOTBALL_PLAY_TYPES[play_type],
                     "selection": selection,
                     "odds": odds.get(selection),
-                    "confidence": round(confidence, 4),
-                    "reasons": football_reasons(match, play_type, selection, odds),
+                    "confidence": metrics["confidence"],
+                    "impliedProbability": metrics["impliedProbability"],
+                    "fairProbability": metrics["fairProbability"],
+                    "modelProbability": metrics["modelProbability"],
+                    "overround": metrics["overround"],
+                    "edge": metrics["edge"],
+                    "expectedValue": metrics["edge"],
+                    "expectedGoals": profile["expectedGoals"],
+                    "dataQuality": metrics["dataQuality"],
+                    "sourceStatus": source_status,
+                    "resultStatus": "pending",
+                    "reasons": football_reasons(match, play_type, selection, odds, metrics, profile),
                 }
             )
     sorted_rows = sorted(rows, key=lambda item: (-item["confidence"], item["kickoffTime"], item["playType"]))
@@ -675,37 +1230,146 @@ def build_football_recommendations(matches: list[FootballMatch], play_types: lis
     return selected[:limit]
 
 
-def select_football_pick(match: FootballMatch, play_type: str, odds: dict[str, float]) -> tuple[str, float]:
-    probabilities = implied_probabilities(odds)
-    strength_bias = match.teamStrength.get("home", 0.5) - match.teamStrength.get("away", 0.5)
-    adjusted = dict(probabilities)
-    if play_type in {"had", "hhad"}:
-        adjusted["H"] = adjusted.get("H", 0.0) + max(strength_bias, 0.0) * 0.12
-        adjusted["A"] = adjusted.get("A", 0.0) + max(-strength_bias, 0.0) * 0.12
-        adjusted["D"] = adjusted.get("D", 0.0) + (0.03 if abs(strength_bias) < 0.08 else 0.0)
-        if play_type == "hhad" and match.handicap:
-            adjusted["H"] = adjusted.get("H", 0.0) - max(match.handicap, 0) * 0.05
-            adjusted["A"] = adjusted.get("A", 0.0) + max(match.handicap, 0) * 0.05
-    elif play_type == "ttg":
-        adjusted = {key: value + (0.02 if key in {"2", "3"} else 0.0) for key, value in adjusted.items()}
-    elif play_type == "hafu":
-        adjusted = {key: value + (0.02 if key in {"HH", "DD", "AA"} else 0.0) for key, value in adjusted.items()}
-    elif play_type == "crs":
-        adjusted = {key: value + (0.02 if key in {"1:0", "1:1", "2:1", "0:1"} else 0.0) for key, value in adjusted.items()}
-    selection, score = max(adjusted.items(), key=lambda item: (item[1], -odds.get(item[0], 999.0)))
-    return selection, min(1.0, max(0.0, score))
+def select_football_pick(
+    match: FootballMatch,
+    play_type: str,
+    odds: dict[str, float],
+    source_status: str = "unknown",
+    profile: dict[str, Any] | None = None,
+) -> tuple[str, dict[str, float]]:
+    raw_probabilities = raw_implied_probabilities(odds)
+    fair_probabilities = implied_probabilities(odds)
+    model_probabilities = (profile or build_match_model_profile(match))["playProbabilities"].get(play_type, {})
+    adjusted = {
+        key: fair_probabilities.get(key, 0.0) * 0.42 + model_probabilities.get(key, 0.0) * 0.58
+        for key in set(fair_probabilities) | set(model_probabilities)
+    }
+    total = sum(max(value, 0.0) for value in adjusted.values()) or 1.0
+    blended_probabilities = {key: max(value, 0.0) / total for key, value in adjusted.items()}
+    eligible = {key: value for key, value in blended_probabilities.items() if key in odds}
+    selection, model_probability = max(eligible.items(), key=lambda item: (item[1], -odds.get(item[0], 999.0)))
+    selected_odds = odds.get(selection, 0.0)
+    fair_probability = fair_probabilities.get(selection, 0.0)
+    edge = model_probability * selected_odds - 1.0 if selected_odds else 0.0
+    data_quality = football_data_quality(match, source_status)
+    confidence = min(1.0, max(0.0, model_probability * 0.72 + max(edge, 0.0) * 0.18 + data_quality * 0.10))
+    return selection, {
+        "confidence": round(confidence, 4),
+        "impliedProbability": round(raw_probabilities.get(selection, 0.0), 4),
+        "fairProbability": round(fair_probability, 4),
+        "modelProbability": round(model_probability, 4),
+        "overround": round(sum(raw_probabilities.values()), 4),
+        "edge": round(edge, 4),
+        "dataQuality": round(data_quality, 4),
+    }
+
+
+def raw_implied_probabilities(odds: dict[str, float]) -> dict[str, float]:
+    return {key: 1.0 / value for key, value in odds.items() if value > 1.0}
 
 
 def implied_probabilities(odds: dict[str, float]) -> dict[str, float]:
-    inverse = {key: 1.0 / value for key, value in odds.items() if value > 1.0}
+    inverse = raw_implied_probabilities(odds)
     total = sum(inverse.values()) or 1.0
     return {key: value / total for key, value in inverse.items()}
 
 
-def football_reasons(match: FootballMatch, play_type: str, selection: str, odds: dict[str, float]) -> list[str]:
-    probabilities = implied_probabilities(odds)
+def build_match_model_profile(match: FootballMatch) -> dict[str, Any]:
+    expected = estimate_expected_goals(match)
+    score_probs = poisson_score_matrix(expected["home"], expected["away"])
+    play_probs = {
+        "had": normalize_probability_map(outcome_probabilities(score_probs, 0)),
+        "hhad": normalize_probability_map(outcome_probabilities(score_probs, match.handicap)),
+        "ttg": normalize_probability_map(total_goals_probabilities(score_probs)),
+        "crs": normalize_probability_map(correct_score_probabilities(score_probs)),
+        "hafu": normalize_probability_map(half_full_probabilities(match, expected)),
+    }
+    return {
+        "modelName": "poisson_v1",
+        "expectedGoals": {"home": round(expected["home"], 3), "away": round(expected["away"], 3)},
+        "playProbabilities": play_probs,
+    }
+
+
+def estimate_expected_goals(match: FootballMatch) -> dict[str, float]:
+    home_strength = min(1.05, max(0.25, match.teamStrength.get("home", 0.5)))
+    away_strength = min(1.05, max(0.25, match.teamStrength.get("away", 0.5)))
+    strength_gap = home_strength - away_strength
+    stage_modifier = 0.88 if any(token in match.phase for token in ["Round", "Quarter", "Semi", "Final", "Third"]) else 1.0
+    host_bonus = 0.10 if not match.neutralVenue else 0.0
+    base_total = 2.55 * stage_modifier
+    home_share = min(0.72, max(0.28, 0.5 + strength_gap * 0.34 + host_bonus))
+    home_goals = min(4.2, max(0.25, base_total * home_share))
+    away_goals = min(4.2, max(0.25, base_total * (1.0 - home_share)))
+    return {"home": home_goals, "away": away_goals}
+
+
+def poisson_score_matrix(home_goals: float, away_goals: float, max_goals: int = 7) -> dict[tuple[int, int], float]:
+    rows: dict[tuple[int, int], float] = {}
+    for home in range(max_goals + 1):
+        for away in range(max_goals + 1):
+            rows[(home, away)] = poisson_probability(home_goals, home) * poisson_probability(away_goals, away)
+    total = sum(rows.values()) or 1.0
+    return {score: value / total for score, value in rows.items()}
+
+
+def poisson_probability(lmbda: float, goals: int) -> float:
+    return math.exp(-lmbda) * (lmbda ** goals) / math.factorial(goals)
+
+
+def outcome_probabilities(score_probs: dict[tuple[int, int], float], handicap: int) -> dict[str, float]:
+    rows = {"H": 0.0, "D": 0.0, "A": 0.0}
+    for (home, away), probability in score_probs.items():
+        outcome = match_outcome(home + handicap, away)
+        rows[outcome] += probability
+    return rows
+
+
+def total_goals_probabilities(score_probs: dict[tuple[int, int], float]) -> dict[str, float]:
+    rows = {str(index): 0.0 for index in range(7)} | {"7+": 0.0}
+    for (home, away), probability in score_probs.items():
+        total = home + away
+        rows["7+" if total >= 7 else str(total)] += probability
+    return rows
+
+
+def correct_score_probabilities(score_probs: dict[tuple[int, int], float]) -> dict[str, float]:
+    return {f"{home}:{away}": probability for (home, away), probability in score_probs.items()}
+
+
+def half_full_probabilities(match: FootballMatch, expected: dict[str, float]) -> dict[str, float]:
+    half_matrix = poisson_score_matrix(expected["home"] * 0.45, expected["away"] * 0.45, max_goals=5)
+    full_matrix = poisson_score_matrix(expected["home"], expected["away"], max_goals=7)
+    half_probs = outcome_probabilities(half_matrix, 0)
+    full_probs = outcome_probabilities(full_matrix, 0)
+    return {half + full: half_probs[half] * full_probs[full] for half in ["H", "D", "A"] for full in ["H", "D", "A"]}
+
+
+def normalize_probability_map(values: dict[str, float]) -> dict[str, float]:
+    total = sum(max(value, 0.0) for value in values.values()) or 1.0
+    return {key: round(max(value, 0.0) / total, 6) for key, value in values.items()}
+
+
+def football_data_quality(match: FootballMatch, source_status: str) -> float:
+    source_score = {"official": 0.95, "import": 0.86, "cache": 0.72, "fallback": 0.55}.get(source_status, 0.6)
+    pool_score = min(1.0, len(match.pools) / max(1, len(FOOTBALL_PLAY_TYPES)))
+    strength_score = 1.0 if match.teamStrength else 0.6
+    return source_score * 0.6 + pool_score * 0.25 + strength_score * 0.15
+
+
+def football_reasons(
+    match: FootballMatch,
+    play_type: str,
+    selection: str,
+    odds: dict[str, float],
+    metrics: dict[str, float],
+    profile: dict[str, Any] | None = None,
+) -> list[str]:
+    expected = (profile or {}).get("expectedGoals") or {}
     return [
-        f"{FOOTBALL_PLAY_TYPES[play_type]}选择 {selection}，对应隐含概率约 {probabilities.get(selection, 0.0) * 100:.1f}%。",
+        f"{FOOTBALL_PLAY_TYPES[play_type]}选择 {selection}，去水公平概率约 {metrics.get('fairProbability', 0.0) * 100:.1f}%，模型概率约 {metrics.get('modelProbability', 0.0) * 100:.1f}%。",
+        f"Poisson 预期进球：{match.homeTeam} {expected.get('home', 0.0):.2f}，{match.awayTeam} {expected.get('away', 0.0):.2f}。",
+        f"赔率 {odds.get(selection, 0.0):.2f}，理论价值 edge {metrics.get('edge', 0.0):+.2%}，数据质量 {metrics.get('dataQuality', 0.0):.2f}。",
         f"{match.homeTeam} 对 {match.awayTeam}，阶段为{match.phase}，开赛时间 {match.kickoffTime}。",
         "这是基于公开赔率/赛程字段的实验性推荐，不包含投注、下单或中奖承诺。",
     ]
@@ -716,6 +1380,167 @@ def normalize_play_types(play_type: str) -> list[str]:
         return list(FOOTBALL_PLAY_TYPES.keys())
     values = [item.strip().lower() for item in play_type.split(",") if item.strip()]
     return [item for item in values if item in FOOTBALL_PLAY_TYPES] or ["had"]
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def load_json_list(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    rows = payload.get("items") if isinstance(payload, dict) else payload
+    return [item for item in rows or [] if isinstance(item, dict)]
+
+
+def save_json_list(path: Path, rows: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"items": rows}, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def load_football_odds_snapshots() -> list[dict[str, Any]]:
+    return load_json_list(FOOTBALL_ODDS_SNAPSHOT_FILE)
+
+
+def load_football_recommendation_history() -> list[dict[str, Any]]:
+    return load_json_list(FOOTBALL_RECOMMENDATION_FILE)
+
+
+def load_football_results() -> list[dict[str, Any]]:
+    return load_json_list(FOOTBALL_RESULTS_FILE)
+
+
+def save_football_odds_snapshots(matches: list[FootballMatch], source_status: str, captured_at: str) -> None:
+    existing = load_football_odds_snapshots()
+    rows: list[dict[str, Any]] = []
+    for match in matches:
+        for play_type, odds in match.pools.items():
+            rows.append(
+                {
+                    "capturedAt": captured_at,
+                    "matchId": match.matchId,
+                    "matchNum": match.matchNum,
+                    "kickoffTime": match.kickoffTime,
+                    "homeTeam": match.homeTeam,
+                    "awayTeam": match.awayTeam,
+                    "playType": play_type,
+                    "odds": odds,
+                    "sourceStatus": source_status,
+                    "source": match.source,
+                }
+            )
+    save_json_list(FOOTBALL_ODDS_SNAPSHOT_FILE, (existing + rows)[-5000:])
+
+
+def save_football_recommendations(recommendations: list[dict[str, Any]]) -> None:
+    existing = load_football_recommendation_history()
+    save_json_list(FOOTBALL_RECOMMENDATION_FILE, (existing + recommendations)[-3000:])
+
+
+def parse_football_results_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = payload.get("results") or payload.get("items") or []
+    results: list[dict[str, Any]] = []
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        match_id = str(item.get("matchId") or item.get("id") or "").strip()
+        full_time = str(item.get("fullTimeScore") or item.get("score") or "").strip()
+        if not match_id or not parse_score(full_time):
+            continue
+        half_time = str(item.get("halfTimeScore") or "").strip()
+        results.append(
+            {
+                "matchId": match_id,
+                "fullTimeScore": full_time,
+                "halfTimeScore": half_time,
+                "source": str(item.get("source") or "manual"),
+                "updatedAt": str(item.get("updatedAt") or utc_now()),
+            }
+        )
+    return results
+
+
+def parse_score(value: str) -> tuple[int, int] | None:
+    normalized = value.replace("-", ":").replace("：", ":")
+    parts = normalized.split(":")
+    if len(parts) != 2:
+        return None
+    try:
+        return int(parts[0]), int(parts[1])
+    except ValueError:
+        return None
+
+
+def build_football_model_report(recommendations: list[dict[str, Any]], results: list[dict[str, Any]]) -> dict[str, Any]:
+    result_by_match = {item["matchId"]: item for item in results if item.get("matchId")}
+    settled: list[dict[str, Any]] = []
+    pending = 0
+    for recommendation in recommendations:
+        result = result_by_match.get(str(recommendation.get("matchId")))
+        if not result:
+            pending += 1
+            continue
+        actual = football_actual_selection(
+            play_type=str(recommendation.get("playType") or ""),
+            result=result,
+            handicap=safe_int(recommendation.get("handicap")),
+        )
+        if not actual:
+            pending += 1
+            continue
+        hit = actual == recommendation.get("selection")
+        odds = safe_float(recommendation.get("odds")) or 0.0
+        profit = odds - 1.0 if hit else -1.0
+        settled.append({**recommendation, "actualSelection": actual, "hit": hit, "profit": profit})
+    settled_count = len(settled)
+    hit_count = sum(1 for item in settled if item["hit"])
+    total_profit = sum(item["profit"] for item in settled)
+    return {
+        "generatedAt": utc_now(),
+        "recommendationCount": len(recommendations),
+        "pendingCount": pending,
+        "settledCount": settled_count,
+        "hitCount": hit_count,
+        "hitRate": round(hit_count / settled_count, 4) if settled_count else 0.0,
+        "simulatedProfit": round(total_profit, 4),
+        "simulatedRoi": round(total_profit / settled_count, 4) if settled_count else 0.0,
+        "averageEdge": round(mean([safe_float(item.get("edge")) or 0.0 for item in recommendations]), 4) if recommendations else 0.0,
+        "recentSettlements": settled[-20:],
+    }
+
+
+def football_actual_selection(play_type: str, result: dict[str, Any], handicap: int = 0) -> str:
+    score = parse_score(str(result.get("fullTimeScore") or ""))
+    if not score:
+        return ""
+    home, away = score
+    if play_type == "had":
+        return match_outcome(home, away)
+    if play_type == "hhad":
+        return match_outcome(home + handicap, away)
+    if play_type == "ttg":
+        total = home + away
+        return "7+" if total >= 7 else str(total)
+    if play_type == "crs":
+        return f"{home}:{away}"
+    if play_type == "hafu":
+        half = parse_score(str(result.get("halfTimeScore") or ""))
+        if not half:
+            return ""
+        return match_outcome(half[0], half[1]) + match_outcome(home, away)
+    return ""
+
+
+def match_outcome(home: int, away: int) -> str:
+    if home > away:
+        return "H"
+    if home < away:
+        return "A"
+    return "D"
 
 
 def infer_team_strength(home: str, away: str) -> dict[str, float]:

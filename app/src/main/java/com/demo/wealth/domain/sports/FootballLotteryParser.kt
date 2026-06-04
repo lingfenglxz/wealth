@@ -28,8 +28,8 @@ object FootballLotteryParser {
             val home = item.optString("homeTeam")
             val away = item.optString("awayTeam")
             val kickoff = item.optString("kickoffTime")
-            val pools = item.optJSONObject("pools")
-            if (matchId.isBlank() || home.isBlank() || away.isBlank() || kickoff.isBlank() || pools == null) {
+            val pools = item.optJSONObject("pools") ?: JSONObject()
+            if (matchId.isBlank() || home.isBlank() || away.isBlank() || kickoff.isBlank()) {
                 return@mapNotNull null
             }
             FootballMatchEntity(
@@ -42,6 +42,8 @@ object FootballLotteryParser {
                 awayTeam = away,
                 handicap = item.optInt("handicap"),
                 poolsJson = pools.toString(),
+                stadium = item.optString("stadium"),
+                city = item.optString("city"),
                 source = item.optString("source", root.optString("sourceStatus", "fallback")),
                 updatedAt = item.optString("updatedAt")
             )
@@ -68,9 +70,16 @@ object FootballLotteryParser {
                 awayTeam = item.optString("awayTeam"),
                 playType = item.optString("playType"),
                 playName = item.optString("playName", FootballPlayTypes.displayName(item.optString("playType"))),
+                modelName = item.optString("modelName"),
                 selection = selection,
                 odds = item.optDouble("odds", 0.0),
                 confidence = item.optDouble("confidence", 0.0),
+                fairProbability = item.optDouble("fairProbability", 0.0),
+                modelProbability = item.optDouble("modelProbability", 0.0),
+                edge = item.optDouble("edge", 0.0),
+                dataQuality = item.optDouble("dataQuality", 0.0),
+                homeExpectedGoals = item.optJSONObject("expectedGoals")?.optDouble("home", 0.0) ?: 0.0,
+                awayExpectedGoals = item.optJSONObject("expectedGoals")?.optDouble("away", 0.0) ?: 0.0,
                 reasonsJson = item.optJSONArray("reasons")?.toString() ?: JSONArray().toString()
             )
         }
