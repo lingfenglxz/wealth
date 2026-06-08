@@ -19,7 +19,7 @@ class SportsFootballApiTest(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         payload = response.json()
-        self.assertIn(payload["sourceStatus"], {"official", "cache", "fallback"})
+        self.assertIn(payload["sourceStatus"], {"official", "import", "cache", "fallback"})
         self.assertGreaterEqual(payload["count"], 1)
         first = payload["matches"][0]
         self.assertTrue(first["matchId"])
@@ -203,9 +203,11 @@ class SportsFootballApiTest(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            with patch.object(main, "FOOTBALL_MATCH_FACTS_FILE", facts_file):
+            empty_import_dir = Path(temp_dir) / "imports"
+            empty_import_dir.mkdir()
+            with patch.object(main, "IMPORT_DIR", empty_import_dir), patch.object(main, "FOOTBALL_MATCH_FACTS_FILE", facts_file):
                 adjusted = main.build_match_model_profile(match)
-            with patch.object(main, "FOOTBALL_MATCH_FACTS_FILE", Path(temp_dir) / "missing.json"):
+            with patch.object(main, "IMPORT_DIR", empty_import_dir), patch.object(main, "FOOTBALL_MATCH_FACTS_FILE", Path(temp_dir) / "missing.json"):
                 baseline = main.build_match_model_profile(match)
 
         self.assertLess(adjusted["expectedGoals"]["home"], baseline["expectedGoals"]["home"])
@@ -307,7 +309,7 @@ class SportsFootballApiTest(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         payload = response.json()
-        self.assertIn(payload["sourceStatus"], {"official", "cache", "fallback"})
+        self.assertIn(payload["sourceStatus"], {"official", "import", "cache", "fallback"})
         self.assertTrue(payload["recommendations"])
         play_types = {item["playType"] for item in payload["recommendations"]}
         self.assertTrue({"had", "hhad", "crs", "ttg", "hafu"}.issubset(play_types))

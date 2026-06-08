@@ -4,20 +4,59 @@
       "matchId": "wc2026-001",
       "matchNum": "001",
       "leagueName": "FIFA World Cup 2026",
-      "phase": "小组赛 A组",
-      "kickoffTime": "2026-06-11T19:00:00-06:00",
+      "phase": "Group A",
+      "kickoffTime": "2026-06-12T03:00:00+08:00",
       "homeTeam": "Mexico",
       "awayTeam": "South Africa",
       "neutralVenue": false,
       "handicap": 0,
-      "teamStrength": {"home": 0.76, "away": 0.62},
-      "pools": {
-        "had": {"H": 1.78, "D": 3.30, "A": 4.60},
-        "hhad": {"H": 3.20, "D": 3.25, "A": 1.95},
-        "crs": {"1:0": 6.20, "1:1": 6.00, "2:0": 7.80, "2:1": 7.10, "0:0": 8.50, "0:1": 11.0},
-        "ttg": {"0": 8.80, "1": 3.90, "2": 3.35, "3": 3.85, "4": 6.20, "5": 11.0, "6": 20.0, "7+": 30.0},
-        "hafu": {"HH": 2.85, "HD": 14.0, "HA": 35.0, "DH": 4.50, "DD": 4.60, "DA": 9.50, "AH": 26.0, "AD": 14.0, "AA": 7.80}
+      "teamStrength": {
+        "home": 0.76,
+        "away": 0.62
       },
+      "pools": {
+        "had": {
+          "H": 1.78,
+          "D": 3.3,
+          "A": 4.6
+        },
+        "hhad": {
+          "H": 3.2,
+          "D": 3.25,
+          "A": 1.95
+        },
+        "crs": {
+          "1:0": 6.2,
+          "1:1": 6.0,
+          "2:0": 7.8,
+          "2:1": 7.1,
+          "0:0": 8.5,
+          "0:1": 11.0
+        },
+        "ttg": {
+          "0": 8.8,
+          "1": 3.9,
+          "2": 3.35,
+          "3": 3.85,
+          "4": 6.2,
+          "5": 11.0,
+          "6": 20.0,
+          "7+": 30.0
+        },
+        "hafu": {
+          "HH": 2.85,
+          "HD": 14.0,
+          "HA": 35.0,
+          "DH": 4.5,
+          "DD": 4.6,
+          "DA": 9.5,
+          "AH": 26.0,
+          "AD": 14.0,
+          "AA": 7.8
+        }
+      },
+      "stadium": "Mexico City Stadium",
+      "city": "Mexico City",
       "source": "fallback",
       "updatedAt": "2026-06-03"
     },
@@ -25,43 +64,2141 @@
       "matchId": "wc2026-002",
       "matchNum": "002",
       "leagueName": "FIFA World Cup 2026",
-      "phase": "小组赛 C组",
-      "kickoffTime": "2026-06-13T18:00:00-04:00",
-      "homeTeam": "Brazil",
-      "awayTeam": "Morocco",
+      "phase": "Group A",
+      "kickoffTime": "2026-06-12T10:00:00+08:00",
+      "homeTeam": "Korea Republic",
+      "awayTeam": "Czechia",
       "neutralVenue": true,
-      "handicap": -1,
-      "teamStrength": {"home": 0.92, "away": 0.78},
-      "pools": {
-        "had": {"H": 1.62, "D": 3.65, "A": 5.40},
-        "hhad": {"H": 2.88, "D": 3.45, "A": 2.08},
-        "crs": {"1:0": 6.00, "1:1": 6.80, "2:0": 6.70, "2:1": 7.20, "0:0": 10.0, "0:1": 13.0},
-        "ttg": {"0": 10.0, "1": 4.40, "2": 3.30, "3": 3.60, "4": 5.60, "5": 9.60, "6": 18.0, "7+": 26.0},
-        "hafu": {"HH": 2.45, "HD": 15.0, "HA": 38.0, "DH": 4.20, "DD": 4.90, "DA": 10.5, "AH": 28.0, "AD": 15.0, "AA": 8.80}
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
       },
-      "source": "fallback",
-      "updatedAt": "2026-06-03"
+      "pools": {},
+      "stadium": "Estadio Guadalajara",
+      "city": "Guadalajara",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
     },
     {
       "matchId": "wc2026-003",
       "matchNum": "003",
       "leagueName": "FIFA World Cup 2026",
-      "phase": "小组赛 L组",
-      "kickoffTime": "2026-06-17T20:00:00-04:00",
+      "phase": "Group A",
+      "kickoffTime": "2026-06-19T00:00:00+08:00",
+      "homeTeam": "Czechia",
+      "awayTeam": "South Africa",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.62
+      },
+      "pools": {},
+      "stadium": "Atlanta Stadium",
+      "city": "Atlanta",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-004",
+      "matchNum": "004",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group A",
+      "kickoffTime": "2026-06-19T09:00:00+08:00",
+      "homeTeam": "Mexico",
+      "awayTeam": "Korea Republic",
+      "neutralVenue": false,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.76,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Estadio Guadalajara",
+      "city": "Guadalajara",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-005",
+      "matchNum": "005",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group A",
+      "kickoffTime": "2026-06-25T09:00:00+08:00",
+      "homeTeam": "Czechia",
+      "awayTeam": "Mexico",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.76
+      },
+      "pools": {},
+      "stadium": "Mexico City Stadium",
+      "city": "Mexico City",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-006",
+      "matchNum": "006",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group A",
+      "kickoffTime": "2026-06-25T09:00:00+08:00",
+      "homeTeam": "South Africa",
+      "awayTeam": "Korea Republic",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.62,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Estadio Monterrey",
+      "city": "Monterrey",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-007",
+      "matchNum": "007",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group B",
+      "kickoffTime": "2026-06-13T03:00:00+08:00",
+      "homeTeam": "Canada",
+      "awayTeam": "Bosnia & Herzegovina",
+      "neutralVenue": false,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.7,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Toronto Stadium",
+      "city": "Toronto",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-008",
+      "matchNum": "008",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group B",
+      "kickoffTime": "2026-06-14T03:00:00+08:00",
+      "homeTeam": "Qatar",
+      "awayTeam": "Switzerland",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "San Francisco Bay Area Stadium",
+      "city": "San Francisco Bay Area",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-009",
+      "matchNum": "009",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group B",
+      "kickoffTime": "2026-06-19T03:00:00+08:00",
+      "homeTeam": "Switzerland",
+      "awayTeam": "Bosnia & Herzegovina",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Los Angeles Stadium",
+      "city": "Los Angeles",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-010",
+      "matchNum": "010",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group B",
+      "kickoffTime": "2026-06-19T06:00:00+08:00",
+      "homeTeam": "Canada",
+      "awayTeam": "Qatar",
+      "neutralVenue": false,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.7,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "BC Place Vancouver",
+      "city": "Vancouver",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-011",
+      "matchNum": "011",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group B",
+      "kickoffTime": "2026-06-25T03:00:00+08:00",
+      "homeTeam": "Switzerland",
+      "awayTeam": "Canada",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.7
+      },
+      "pools": {},
+      "stadium": "BC Place Vancouver",
+      "city": "Vancouver",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-012",
+      "matchNum": "012",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group B",
+      "kickoffTime": "2026-06-25T03:00:00+08:00",
+      "homeTeam": "Bosnia & Herzegovina",
+      "awayTeam": "Qatar",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Seattle Stadium",
+      "city": "Seattle",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-013",
+      "matchNum": "013",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group C",
+      "kickoffTime": "2026-06-14T06:00:00+08:00",
+      "homeTeam": "Brazil",
+      "awayTeam": "Morocco",
+      "neutralVenue": true,
+      "handicap": -1,
+      "teamStrength": {
+        "home": 0.92,
+        "away": 0.78
+      },
+      "pools": {
+        "had": {
+          "H": 1.62,
+          "D": 3.65,
+          "A": 5.4
+        },
+        "hhad": {
+          "H": 2.88,
+          "D": 3.45,
+          "A": 2.08
+        },
+        "crs": {
+          "1:0": 6.0,
+          "1:1": 6.8,
+          "2:0": 6.7,
+          "2:1": 7.2,
+          "0:0": 10.0,
+          "0:1": 13.0
+        },
+        "ttg": {
+          "0": 10.0,
+          "1": 4.4,
+          "2": 3.3,
+          "3": 3.6,
+          "4": 5.6,
+          "5": 9.6,
+          "6": 18.0,
+          "7+": 26.0
+        },
+        "hafu": {
+          "HH": 2.45,
+          "HD": 15.0,
+          "HA": 38.0,
+          "DH": 4.2,
+          "DD": 4.9,
+          "DA": 10.5,
+          "AH": 28.0,
+          "AD": 15.0,
+          "AA": 8.8
+        }
+      },
+      "stadium": "New York/New Jersey (East Rutherford)",
+      "city": "New York/New Jersey",
+      "source": "fallback",
+      "updatedAt": "2026-06-03"
+    },
+    {
+      "matchId": "wc2026-014",
+      "matchNum": "014",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group C",
+      "kickoffTime": "2026-06-14T09:00:00+08:00",
+      "homeTeam": "Haiti",
+      "awayTeam": "Scotland",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Boston Stadium",
+      "city": "Boston",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-015",
+      "matchNum": "015",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group C",
+      "kickoffTime": "2026-06-20T06:00:00+08:00",
+      "homeTeam": "Scotland",
+      "awayTeam": "Morocco",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.78
+      },
+      "pools": {},
+      "stadium": "Boston Stadium",
+      "city": "Boston",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-016",
+      "matchNum": "016",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group C",
+      "kickoffTime": "2026-06-20T08:30:00+08:00",
+      "homeTeam": "Brazil",
+      "awayTeam": "Haiti",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.92,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Philadelphia Stadium",
+      "city": "Philadelphia",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-017",
+      "matchNum": "017",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group C",
+      "kickoffTime": "2026-06-25T06:00:00+08:00",
+      "homeTeam": "Scotland",
+      "awayTeam": "Brazil",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.92
+      },
+      "pools": {},
+      "stadium": "Miami Stadium",
+      "city": "Miami",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-018",
+      "matchNum": "018",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group C",
+      "kickoffTime": "2026-06-25T06:00:00+08:00",
+      "homeTeam": "Morocco",
+      "awayTeam": "Haiti",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.78,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Atlanta Stadium",
+      "city": "Atlanta",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-019",
+      "matchNum": "019",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group D",
+      "kickoffTime": "2026-06-13T09:00:00+08:00",
+      "homeTeam": "USA",
+      "awayTeam": "Paraguay",
+      "neutralVenue": false,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Los Angeles Stadium",
+      "city": "Los Angeles",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-020",
+      "matchNum": "020",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group D",
+      "kickoffTime": "2026-06-14T12:00:00+08:00",
+      "homeTeam": "Australia",
+      "awayTeam": "Turkey",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "BC Place Vancouver",
+      "city": "Vancouver",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-021",
+      "matchNum": "021",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group D",
+      "kickoffTime": "2026-06-20T03:00:00+08:00",
+      "homeTeam": "USA",
+      "awayTeam": "Australia",
+      "neutralVenue": false,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Seattle Stadium",
+      "city": "Seattle",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-022",
+      "matchNum": "022",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group D",
+      "kickoffTime": "2026-06-20T11:00:00+08:00",
+      "homeTeam": "Turkey",
+      "awayTeam": "Paraguay",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "San Francisco Bay Area Stadium",
+      "city": "San Francisco Bay Area",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-023",
+      "matchNum": "023",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group D",
+      "kickoffTime": "2026-06-26T10:00:00+08:00",
+      "homeTeam": "Turkey",
+      "awayTeam": "USA",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Los Angeles Stadium",
+      "city": "Los Angeles",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-024",
+      "matchNum": "024",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group D",
+      "kickoffTime": "2026-06-26T10:00:00+08:00",
+      "homeTeam": "Paraguay",
+      "awayTeam": "Australia",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "San Francisco Bay Area Stadium",
+      "city": "San Francisco Bay Area",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-025",
+      "matchNum": "025",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group E",
+      "kickoffTime": "2026-06-15T01:00:00+08:00",
+      "homeTeam": "Germany",
+      "awayTeam": "Curaçao",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.86,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Houston Stadium",
+      "city": "Houston",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-026",
+      "matchNum": "026",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group E",
+      "kickoffTime": "2026-06-15T07:00:00+08:00",
+      "homeTeam": "Cote d'Ivoire",
+      "awayTeam": "Ecuador",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Philadelphia Stadium",
+      "city": "Philadelphia",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-027",
+      "matchNum": "027",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group E",
+      "kickoffTime": "2026-06-21T04:00:00+08:00",
+      "homeTeam": "Germany",
+      "awayTeam": "Cote d'Ivoire",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.86,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Toronto Stadium",
+      "city": "Toronto",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-028",
+      "matchNum": "028",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group E",
+      "kickoffTime": "2026-06-21T08:00:00+08:00",
+      "homeTeam": "Ecuador",
+      "awayTeam": "Curaçao",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Kansas City Stadium",
+      "city": "Kansas City",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-029",
+      "matchNum": "029",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group E",
+      "kickoffTime": "2026-06-26T04:00:00+08:00",
+      "homeTeam": "Curaçao",
+      "awayTeam": "Cote d'Ivoire",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Philadelphia Stadium",
+      "city": "Philadelphia",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-030",
+      "matchNum": "030",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group E",
+      "kickoffTime": "2026-06-26T04:00:00+08:00",
+      "homeTeam": "Ecuador",
+      "awayTeam": "Germany",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.86
+      },
+      "pools": {},
+      "stadium": "New York/New Jersey (East Rutherford)",
+      "city": "New York/New Jersey",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-031",
+      "matchNum": "031",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group F",
+      "kickoffTime": "2026-06-15T04:00:00+08:00",
+      "homeTeam": "Netherlands",
+      "awayTeam": "Japan",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.84,
+        "away": 0.77
+      },
+      "pools": {},
+      "stadium": "Dallas Stadium",
+      "city": "Dallas",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-032",
+      "matchNum": "032",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group F",
+      "kickoffTime": "2026-06-15T10:00:00+08:00",
+      "homeTeam": "Sweden",
+      "awayTeam": "Tunisia",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Estadio Monterrey",
+      "city": "Monterrey",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-033",
+      "matchNum": "033",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group F",
+      "kickoffTime": "2026-06-21T01:00:00+08:00",
+      "homeTeam": "Netherlands",
+      "awayTeam": "Sweden",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.84,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Houston Stadium",
+      "city": "Houston",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-034",
+      "matchNum": "034",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group F",
+      "kickoffTime": "2026-06-21T12:00:00+08:00",
+      "homeTeam": "Tunisia",
+      "awayTeam": "Japan",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.77
+      },
+      "pools": {},
+      "stadium": "Estadio Monterrey",
+      "city": "Monterrey",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-035",
+      "matchNum": "035",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group F",
+      "kickoffTime": "2026-06-26T07:00:00+08:00",
+      "homeTeam": "Japan",
+      "awayTeam": "Sweden",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.77,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Dallas Stadium",
+      "city": "Dallas",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-036",
+      "matchNum": "036",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group F",
+      "kickoffTime": "2026-06-26T07:00:00+08:00",
+      "homeTeam": "Tunisia",
+      "awayTeam": "Netherlands",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.84
+      },
+      "pools": {},
+      "stadium": "Kansas City Stadium",
+      "city": "Kansas City",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-037",
+      "matchNum": "037",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group G",
+      "kickoffTime": "2026-06-16T03:00:00+08:00",
+      "homeTeam": "Belgium",
+      "awayTeam": "Egypt",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Seattle Stadium",
+      "city": "Seattle",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-038",
+      "matchNum": "038",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group G",
+      "kickoffTime": "2026-06-16T09:00:00+08:00",
+      "homeTeam": "Iran",
+      "awayTeam": "New Zealand",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Los Angeles Stadium",
+      "city": "Los Angeles",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-039",
+      "matchNum": "039",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group G",
+      "kickoffTime": "2026-06-22T03:00:00+08:00",
+      "homeTeam": "Belgium",
+      "awayTeam": "Iran",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Los Angeles Stadium",
+      "city": "Los Angeles",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-040",
+      "matchNum": "040",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group G",
+      "kickoffTime": "2026-06-22T09:00:00+08:00",
+      "homeTeam": "New Zealand",
+      "awayTeam": "Egypt",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "BC Place Vancouver",
+      "city": "Vancouver",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-041",
+      "matchNum": "041",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group G",
+      "kickoffTime": "2026-06-27T11:00:00+08:00",
+      "homeTeam": "Egypt",
+      "awayTeam": "Iran",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Seattle Stadium",
+      "city": "Seattle",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-042",
+      "matchNum": "042",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group G",
+      "kickoffTime": "2026-06-27T11:00:00+08:00",
+      "homeTeam": "New Zealand",
+      "awayTeam": "Belgium",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "BC Place Vancouver",
+      "city": "Vancouver",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-043",
+      "matchNum": "043",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group H",
+      "kickoffTime": "2026-06-16T00:00:00+08:00",
+      "homeTeam": "Spain",
+      "awayTeam": "Cabo Verde",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.87,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Atlanta Stadium",
+      "city": "Atlanta",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-044",
+      "matchNum": "044",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group H",
+      "kickoffTime": "2026-06-16T06:00:00+08:00",
+      "homeTeam": "Saudi Arabia",
+      "awayTeam": "Uruguay",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Miami Stadium",
+      "city": "Miami",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-045",
+      "matchNum": "045",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group H",
+      "kickoffTime": "2026-06-22T00:00:00+08:00",
+      "homeTeam": "Spain",
+      "awayTeam": "Saudi Arabia",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.87,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Atlanta Stadium",
+      "city": "Atlanta",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-046",
+      "matchNum": "046",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group H",
+      "kickoffTime": "2026-06-22T06:00:00+08:00",
+      "homeTeam": "Uruguay",
+      "awayTeam": "Cabo Verde",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Miami Stadium",
+      "city": "Miami",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-047",
+      "matchNum": "047",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group H",
+      "kickoffTime": "2026-06-27T08:00:00+08:00",
+      "homeTeam": "Cabo Verde",
+      "awayTeam": "Saudi Arabia",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Houston Stadium",
+      "city": "Houston",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-048",
+      "matchNum": "048",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group H",
+      "kickoffTime": "2026-06-27T08:00:00+08:00",
+      "homeTeam": "Uruguay",
+      "awayTeam": "Spain",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.87
+      },
+      "pools": {},
+      "stadium": "Estadio Guadalajara",
+      "city": "Guadalajara",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-049",
+      "matchNum": "049",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group I",
+      "kickoffTime": "2026-06-17T03:00:00+08:00",
+      "homeTeam": "France",
+      "awayTeam": "Senegal",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.91,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "New York/New Jersey (East Rutherford)",
+      "city": "New York/New Jersey",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-050",
+      "matchNum": "050",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group I",
+      "kickoffTime": "2026-06-17T06:00:00+08:00",
+      "homeTeam": "Iraq",
+      "awayTeam": "Norway",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Boston Stadium",
+      "city": "Boston",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-051",
+      "matchNum": "051",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group I",
+      "kickoffTime": "2026-06-23T05:00:00+08:00",
+      "homeTeam": "France",
+      "awayTeam": "Iraq",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.91,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Philadelphia Stadium",
+      "city": "Philadelphia",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-052",
+      "matchNum": "052",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group I",
+      "kickoffTime": "2026-06-23T08:00:00+08:00",
+      "homeTeam": "Norway",
+      "awayTeam": "Senegal",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "New York/New Jersey (East Rutherford)",
+      "city": "New York/New Jersey",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-053",
+      "matchNum": "053",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group I",
+      "kickoffTime": "2026-06-27T03:00:00+08:00",
+      "homeTeam": "Norway",
+      "awayTeam": "France",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.91
+      },
+      "pools": {},
+      "stadium": "Boston Stadium",
+      "city": "Boston",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-054",
+      "matchNum": "054",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group I",
+      "kickoffTime": "2026-06-27T03:00:00+08:00",
+      "homeTeam": "Senegal",
+      "awayTeam": "Iraq",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Toronto Stadium",
+      "city": "Toronto",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-055",
+      "matchNum": "055",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group J",
+      "kickoffTime": "2026-06-17T09:00:00+08:00",
+      "homeTeam": "Argentina",
+      "awayTeam": "Algeria",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.9,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Kansas City Stadium",
+      "city": "Kansas City",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-056",
+      "matchNum": "056",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group J",
+      "kickoffTime": "2026-06-17T12:00:00+08:00",
+      "homeTeam": "Austria",
+      "awayTeam": "Jordan",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "San Francisco Bay Area Stadium",
+      "city": "San Francisco Bay Area",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-057",
+      "matchNum": "057",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group J",
+      "kickoffTime": "2026-06-23T01:00:00+08:00",
+      "homeTeam": "Argentina",
+      "awayTeam": "Austria",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.9,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Dallas Stadium",
+      "city": "Dallas",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-058",
+      "matchNum": "058",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group J",
+      "kickoffTime": "2026-06-23T11:00:00+08:00",
+      "homeTeam": "Jordan",
+      "awayTeam": "Algeria",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "San Francisco Bay Area Stadium",
+      "city": "San Francisco Bay Area",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-059",
+      "matchNum": "059",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group J",
+      "kickoffTime": "2026-06-28T10:00:00+08:00",
+      "homeTeam": "Algeria",
+      "awayTeam": "Austria",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Kansas City Stadium",
+      "city": "Kansas City",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-060",
+      "matchNum": "060",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group J",
+      "kickoffTime": "2026-06-28T10:00:00+08:00",
+      "homeTeam": "Jordan",
+      "awayTeam": "Argentina",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.9
+      },
+      "pools": {},
+      "stadium": "Dallas Stadium",
+      "city": "Dallas",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-061",
+      "matchNum": "061",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group K",
+      "kickoffTime": "2026-06-18T01:00:00+08:00",
+      "homeTeam": "Portugal",
+      "awayTeam": "DR Congo",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.85,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Houston Stadium",
+      "city": "Houston",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-062",
+      "matchNum": "062",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group K",
+      "kickoffTime": "2026-06-18T10:00:00+08:00",
+      "homeTeam": "Uzbekistan",
+      "awayTeam": "Colombia",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Mexico City Stadium",
+      "city": "Mexico City",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-063",
+      "matchNum": "063",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group K",
+      "kickoffTime": "2026-06-24T01:00:00+08:00",
+      "homeTeam": "Portugal",
+      "awayTeam": "Uzbekistan",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.85,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Houston Stadium",
+      "city": "Houston",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-064",
+      "matchNum": "064",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group K",
+      "kickoffTime": "2026-06-24T10:00:00+08:00",
+      "homeTeam": "Colombia",
+      "awayTeam": "DR Congo",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Estadio Guadalajara",
+      "city": "Guadalajara",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-065",
+      "matchNum": "065",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group K",
+      "kickoffTime": "2026-06-28T07:30:00+08:00",
+      "homeTeam": "Colombia",
+      "awayTeam": "Portugal",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.85
+      },
+      "pools": {},
+      "stadium": "Miami Stadium",
+      "city": "Miami",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-066",
+      "matchNum": "066",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group K",
+      "kickoffTime": "2026-06-28T07:30:00+08:00",
+      "homeTeam": "DR Congo",
+      "awayTeam": "Uzbekistan",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Atlanta Stadium",
+      "city": "Atlanta",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-067",
+      "matchNum": "067",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group L",
+      "kickoffTime": "2026-06-18T04:00:00+08:00",
       "homeTeam": "England",
       "awayTeam": "Croatia",
       "neutralVenue": true,
       "handicap": 0,
-      "teamStrength": {"home": 0.88, "away": 0.80},
-      "pools": {
-        "had": {"H": 1.95, "D": 3.18, "A": 3.90},
-        "hhad": {"H": 4.10, "D": 3.40, "A": 1.72},
-        "crs": {"1:0": 6.40, "1:1": 5.70, "2:0": 8.80, "2:1": 7.20, "0:0": 7.60, "0:1": 9.80},
-        "ttg": {"0": 7.60, "1": 3.70, "2": 3.25, "3": 3.95, "4": 6.50, "5": 12.0, "6": 22.0, "7+": 32.0},
-        "hafu": {"HH": 3.10, "HD": 13.5, "HA": 30.0, "DH": 4.80, "DD": 4.20, "DA": 8.60, "AH": 24.0, "AD": 13.0, "AA": 6.80}
+      "teamStrength": {
+        "home": 0.88,
+        "away": 0.8
       },
+      "pools": {
+        "had": {
+          "H": 1.95,
+          "D": 3.18,
+          "A": 3.9
+        },
+        "hhad": {
+          "H": 4.1,
+          "D": 3.4,
+          "A": 1.72
+        },
+        "crs": {
+          "1:0": 6.4,
+          "1:1": 5.7,
+          "2:0": 8.8,
+          "2:1": 7.2,
+          "0:0": 7.6,
+          "0:1": 9.8
+        },
+        "ttg": {
+          "0": 7.6,
+          "1": 3.7,
+          "2": 3.25,
+          "3": 3.95,
+          "4": 6.5,
+          "5": 12.0,
+          "6": 22.0,
+          "7+": 32.0
+        },
+        "hafu": {
+          "HH": 3.1,
+          "HD": 13.5,
+          "HA": 30.0,
+          "DH": 4.8,
+          "DD": 4.2,
+          "DA": 8.6,
+          "AH": 24.0,
+          "AD": 13.0,
+          "AA": 6.8
+        }
+      },
+      "stadium": "Dallas Stadium",
+      "city": "Dallas",
       "source": "fallback",
       "updatedAt": "2026-06-03"
+    },
+    {
+      "matchId": "wc2026-068",
+      "matchNum": "068",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group L",
+      "kickoffTime": "2026-06-18T07:00:00+08:00",
+      "homeTeam": "Ghana",
+      "awayTeam": "Panama",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Toronto Stadium",
+      "city": "Toronto",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-069",
+      "matchNum": "069",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group L",
+      "kickoffTime": "2026-06-24T04:00:00+08:00",
+      "homeTeam": "England",
+      "awayTeam": "Ghana",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.88,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Boston Stadium",
+      "city": "Boston",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-070",
+      "matchNum": "070",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group L",
+      "kickoffTime": "2026-06-24T07:00:00+08:00",
+      "homeTeam": "Panama",
+      "awayTeam": "Croatia",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Toronto Stadium",
+      "city": "Toronto",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-071",
+      "matchNum": "071",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group L",
+      "kickoffTime": "2026-06-28T05:00:00+08:00",
+      "homeTeam": "Panama",
+      "awayTeam": "England",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.88
+      },
+      "pools": {},
+      "stadium": "New York/New Jersey (East Rutherford)",
+      "city": "New York/New Jersey",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-072",
+      "matchNum": "072",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Group L",
+      "kickoffTime": "2026-06-28T05:00:00+08:00",
+      "homeTeam": "Croatia",
+      "awayTeam": "Ghana",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Philadelphia Stadium",
+      "city": "Philadelphia",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-073",
+      "matchNum": "073",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-06-29T03:00:00+08:00",
+      "homeTeam": "2A",
+      "awayTeam": "2B",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Los Angeles Stadium",
+      "city": "Los Angeles",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-074",
+      "matchNum": "074",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-06-30T04:30:00+08:00",
+      "homeTeam": "1E",
+      "awayTeam": "3A/B/C/D/F",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Boston Stadium",
+      "city": "Boston",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-075",
+      "matchNum": "075",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-06-30T09:00:00+08:00",
+      "homeTeam": "1F",
+      "awayTeam": "2C",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Estadio Monterrey",
+      "city": "Monterrey",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-076",
+      "matchNum": "076",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-06-30T01:00:00+08:00",
+      "homeTeam": "1C",
+      "awayTeam": "2F",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Houston Stadium",
+      "city": "Houston",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-077",
+      "matchNum": "077",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-07-01T05:00:00+08:00",
+      "homeTeam": "1I",
+      "awayTeam": "3C/D/F/G/H",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "New York/New Jersey (East Rutherford)",
+      "city": "New York/New Jersey",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-078",
+      "matchNum": "078",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-07-01T01:00:00+08:00",
+      "homeTeam": "2E",
+      "awayTeam": "2I",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Dallas Stadium",
+      "city": "Dallas",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-079",
+      "matchNum": "079",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-07-01T09:00:00+08:00",
+      "homeTeam": "1A",
+      "awayTeam": "3C/E/F/H/I",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Mexico City Stadium",
+      "city": "Mexico City",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-080",
+      "matchNum": "080",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-07-02T00:00:00+08:00",
+      "homeTeam": "1L",
+      "awayTeam": "3E/H/I/J/K",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Atlanta Stadium",
+      "city": "Atlanta",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-081",
+      "matchNum": "081",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-07-02T08:00:00+08:00",
+      "homeTeam": "1D",
+      "awayTeam": "3B/E/F/I/J",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "San Francisco Bay Area Stadium",
+      "city": "San Francisco Bay Area",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-082",
+      "matchNum": "082",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-07-02T04:00:00+08:00",
+      "homeTeam": "1G",
+      "awayTeam": "3A/E/H/I/J",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Seattle Stadium",
+      "city": "Seattle",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-083",
+      "matchNum": "083",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-07-03T07:00:00+08:00",
+      "homeTeam": "2K",
+      "awayTeam": "2L",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Toronto Stadium",
+      "city": "Toronto",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-084",
+      "matchNum": "084",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-07-03T03:00:00+08:00",
+      "homeTeam": "1H",
+      "awayTeam": "2J",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Los Angeles Stadium",
+      "city": "Los Angeles",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-085",
+      "matchNum": "085",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-07-03T11:00:00+08:00",
+      "homeTeam": "1B",
+      "awayTeam": "3E/F/G/I/J",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "BC Place Vancouver",
+      "city": "Vancouver",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-086",
+      "matchNum": "086",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-07-04T06:00:00+08:00",
+      "homeTeam": "1J",
+      "awayTeam": "2H",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Miami Stadium",
+      "city": "Miami",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-087",
+      "matchNum": "087",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-07-04T09:30:00+08:00",
+      "homeTeam": "1K",
+      "awayTeam": "3D/E/I/J/L",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Kansas City Stadium",
+      "city": "Kansas City",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-088",
+      "matchNum": "088",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 32",
+      "kickoffTime": "2026-07-04T02:00:00+08:00",
+      "homeTeam": "2D",
+      "awayTeam": "2G",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Dallas Stadium",
+      "city": "Dallas",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-089",
+      "matchNum": "089",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 16",
+      "kickoffTime": "2026-07-05T05:00:00+08:00",
+      "homeTeam": "W74",
+      "awayTeam": "W77",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Philadelphia Stadium",
+      "city": "Philadelphia",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-090",
+      "matchNum": "090",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 16",
+      "kickoffTime": "2026-07-05T01:00:00+08:00",
+      "homeTeam": "W73",
+      "awayTeam": "W75",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Houston Stadium",
+      "city": "Houston",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-091",
+      "matchNum": "091",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 16",
+      "kickoffTime": "2026-07-06T04:00:00+08:00",
+      "homeTeam": "W76",
+      "awayTeam": "W78",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "New York/New Jersey (East Rutherford)",
+      "city": "New York/New Jersey",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-092",
+      "matchNum": "092",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 16",
+      "kickoffTime": "2026-07-06T08:00:00+08:00",
+      "homeTeam": "W79",
+      "awayTeam": "W80",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Mexico City Stadium",
+      "city": "Mexico City",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-093",
+      "matchNum": "093",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 16",
+      "kickoffTime": "2026-07-07T03:00:00+08:00",
+      "homeTeam": "W83",
+      "awayTeam": "W84",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Dallas Stadium",
+      "city": "Dallas",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-094",
+      "matchNum": "094",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 16",
+      "kickoffTime": "2026-07-07T08:00:00+08:00",
+      "homeTeam": "W81",
+      "awayTeam": "W82",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Seattle Stadium",
+      "city": "Seattle",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-095",
+      "matchNum": "095",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 16",
+      "kickoffTime": "2026-07-08T00:00:00+08:00",
+      "homeTeam": "W86",
+      "awayTeam": "W88",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Atlanta Stadium",
+      "city": "Atlanta",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-096",
+      "matchNum": "096",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Round of 16",
+      "kickoffTime": "2026-07-08T04:00:00+08:00",
+      "homeTeam": "W85",
+      "awayTeam": "W87",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "BC Place Vancouver",
+      "city": "Vancouver",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-097",
+      "matchNum": "097",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Quarter-final",
+      "kickoffTime": "2026-07-10T04:00:00+08:00",
+      "homeTeam": "W89",
+      "awayTeam": "W90",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Boston Stadium",
+      "city": "Boston",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-098",
+      "matchNum": "098",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Quarter-final",
+      "kickoffTime": "2026-07-11T03:00:00+08:00",
+      "homeTeam": "W93",
+      "awayTeam": "W94",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Los Angeles Stadium",
+      "city": "Los Angeles",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-099",
+      "matchNum": "099",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Quarter-final",
+      "kickoffTime": "2026-07-12T05:00:00+08:00",
+      "homeTeam": "W91",
+      "awayTeam": "W92",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Miami Stadium",
+      "city": "Miami",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-100",
+      "matchNum": "100",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Quarter-final",
+      "kickoffTime": "2026-07-12T09:00:00+08:00",
+      "homeTeam": "W95",
+      "awayTeam": "W96",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Kansas City Stadium",
+      "city": "Kansas City",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-101",
+      "matchNum": "101",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Semi-final",
+      "kickoffTime": "2026-07-15T03:00:00+08:00",
+      "homeTeam": "W97",
+      "awayTeam": "W98",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Dallas Stadium",
+      "city": "Dallas",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-102",
+      "matchNum": "102",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Semi-final",
+      "kickoffTime": "2026-07-16T03:00:00+08:00",
+      "homeTeam": "W99",
+      "awayTeam": "W100",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Atlanta Stadium",
+      "city": "Atlanta",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-103",
+      "matchNum": "103",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Match for third place",
+      "kickoffTime": "2026-07-19T05:00:00+08:00",
+      "homeTeam": "L101",
+      "awayTeam": "L102",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "Miami Stadium",
+      "city": "Miami",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
+    },
+    {
+      "matchId": "wc2026-104",
+      "matchNum": "104",
+      "leagueName": "FIFA World Cup 2026",
+      "phase": "Final",
+      "kickoffTime": "2026-07-20T03:00:00+08:00",
+      "homeTeam": "W101",
+      "awayTeam": "W102",
+      "neutralVenue": true,
+      "handicap": 0,
+      "teamStrength": {
+        "home": 0.68,
+        "away": 0.68
+      },
+      "pools": {},
+      "stadium": "New York/New Jersey (East Rutherford)",
+      "city": "New York/New Jersey",
+      "source": "openfootball",
+      "updatedAt": "2026-06-08"
     }
   ]
 }
