@@ -635,7 +635,7 @@ fun ModelParameterCard(
         Text("模型版本", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-            listOf("recent_focus_v3" to "近期", "hit_rate_v4" to "命中", "balanced_v2" to "均衡", "baseline_v1" to "基线").forEach { (value, label) ->
+            listOf("auto" to "自动", "recent_focus_v3" to "近期", "hit_rate_v4" to "命中", "balanced_v2" to "均衡", "baseline_v1" to "基线").forEach { (value, label) ->
                 ChoiceButton(label, selected = modelVersion == value) { onModelVersionChange(value) }
             }
         }

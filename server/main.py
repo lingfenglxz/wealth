@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import random
@@ -10,6 +11,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from statistics import mean
 from typing import Any
+from uuid import uuid4
 
 import httpx
 from fastapi import Body, FastAPI, Query
@@ -21,6 +23,7 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 CACHE_FILE = DATA_DIR / "ssq_draws.json"
 IMPORT_DIR = DATA_DIR / "imports"
 SSQ_STATE_FILE = DATA_DIR / "ssq_state.json"
+SSQ_MODEL_EVALUATION_FILE = DATA_DIR / "ssq_model_evaluation.json"
 FOOTBALL_CACHE_FILE = DATA_DIR / "football_matches.json"
 FOOTBALL_ODDS_SNAPSHOT_FILE = DATA_DIR / "football_odds_snapshots.json"
 FOOTBALL_RECOMMENDATION_FILE = DATA_DIR / "football_recommendations.json"
@@ -49,6 +52,11 @@ MODEL_CONFIGS = {
     "balanced_v2": {"full": 0.34, "recent": 0.36, "miss": 0.22, "center": 0.08},
     "baseline_v1": {"full": 0.55, "recent": 0.0, "miss": 0.35, "center": 0.10},
 }
+UNIFORM_RANDOM_MODEL_VERSION = "uniform_random_v0"
+EVALUATION_MODEL_VERSIONS = [*MODEL_CONFIGS, UNIFORM_RANDOM_MODEL_VERSION]
+SSQ_EVALUATION_VERSION = "ssq-evaluation-v1"
+SSQ_EVALUATION_SAMPLE_LIMIT = 60
+SSQ_EVALUATION_FOLD_COUNT = 6
 
 
 @dataclass(frozen=True)
@@ -100,12 +108,14 @@ async def ssq_draws(
 ) -> dict[str, Any]:
     draws = await get_draws(limit, refresh)
     state = refresh_ssq_state_settlements(draws)
+    evaluation = ensure_ssq_model_evaluation(draws) if refresh and len(draws) >= 30 else None
     return {
         "source": "cwl",
         "count": len(draws),
         "draws": [asdict(draw) for draw in draws],
         "analysis": analyze(draws),
         "stateBackup": state,
+        "modelEvaluation": evaluation,
     }
 
 
@@ -115,7 +125,7 @@ async def ssq_recommendations(
     compoundCount: int = Query(default=1, ge=0, le=5),
     redCount: int = Query(default=6, ge=6, le=20),
     blueCount: int = Query(default=3, ge=1, le=16),
-    modelVersion: str = Query(default="recent_focus_v3"),
+    modelVersion: str = Query(default="auto"),
     recentWindow: int = Query(default=240, ge=30, le=500),
     budgetBets: int = Query(default=252, ge=1, le=5000),
     limit: int = Query(default=3000, ge=30, le=5000),
@@ -130,7 +140,13 @@ async def ssq_recommendations(
             "analysis": analyze(draws, recentWindow, modelVersion),
             "predictions": [],
         }
-    model_version = modelVersion if modelVersion in MODEL_CONFIGS else "recent_focus_v3"
+    evaluation = ensure_ssq_model_evaluation(
+        draws,
+        recent_window=recentWindow,
+    )
+    model_version = evaluation["recommendedModelVersion"] if modelVersion in {"auto", "recent_focus_v3"} else modelVersion
+    if model_version not in MODEL_CONFIGS:
+        model_version = "recent_focus_v3"
     analysis = analyze(draws, recentWindow, model_version)
     predictions = recommend(
         draws=draws,
@@ -142,13 +158,17 @@ async def ssq_recommendations(
         model_version=model_version,
         recent_window=recentWindow,
     )
-    comparison = compare_models(
-        draws,
-        recentWindow,
-        single_count=singleCount,
-        compound_count=compoundCount,
-        red_count=redCount,
-        blue_count=blueCount,
+    comparison = (
+        evaluation["modelReports"]
+        if modelVersion in {"auto", "recent_focus_v3"}
+        else compare_models(
+            draws,
+            recentWindow,
+            single_count=singleCount,
+            compound_count=compoundCount,
+            red_count=redCount,
+            blue_count=blueCount,
+        )
     )
     selected_backtest = next((item for item in comparison if item["version"] == model_version), None)
     number_rankings = build_number_rankings(draws, model_version, recentWindow)
@@ -159,9 +179,16 @@ async def ssq_recommendations(
         "analysis": analysis,
         "modelVersion": model_version,
         "recentWindow": recentWindow,
+        "requestPlan": {
+            "singleCount": singleCount,
+            "compoundCount": compoundCount,
+            "redCount": redCount,
+            "blueCount": blueCount,
+        },
         "predictions": predictions,
         "backtest": selected_backtest,
         "modelComparison": comparison,
+        "modelEvaluation": evaluation,
         "budgetPlan": optimize_budget_plan(draws, analysis, model_version, recentWindow, budgetBets),
         "narrative": build_narrative(analysis, model_version),
         "numberRankings": number_rankings,
@@ -377,17 +404,51 @@ def save_ssq_state(state: dict[str, Any]) -> dict[str, Any]:
 
 def save_ssq_recommendation_state(response: dict[str, Any]) -> dict[str, Any]:
     state = load_ssq_state()
-    predictions = response.get("predictions") or []
+    fingerprint = recommendation_fingerprint(response)
+    if any(item.get("recommendationFingerprint") == fingerprint for item in state.get("predictions") or []):
+        return save_ssq_state(state)
+    generated_at = datetime.now(timezone.utc).isoformat()
+    run_id = uuid4().hex
+    predictions = [
+        {
+            **prediction,
+            "runId": run_id,
+            "generatedAt": generated_at,
+            "recommendationFingerprint": fingerprint,
+        }
+        for prediction in response.get("predictions") or []
+    ]
     if predictions:
-        target_issue = str(predictions[0].get("targetIssue") or "")
-        state["predictions"] = [item for item in state["predictions"] if item.get("targetIssue") != target_issue]
         state["predictions"].extend(predictions)
-        report = build_research_backup(response)
-        state["researchReports"] = [item for item in state["researchReports"] if item.get("targetIssue") != target_issue]
+        report = build_research_backup({**response, "predictions": predictions})
+        report["runId"] = run_id
+        report["generatedAt"] = generated_at
+        report["recommendationFingerprint"] = fingerprint
         state["researchReports"].append(report)
         draws = [SsqDraw(**item) for item in response.get("draws", []) if valid_server_draw_dict(item)]
         state = settle_state_predictions(state, draws)
     return save_ssq_state(state)
+
+
+def recommendation_fingerprint(response: dict[str, Any]) -> str:
+    predictions = [
+        {
+            "targetIssue": str(item.get("targetIssue") or ""),
+            "sourceIssue": str(item.get("sourceIssue") or ""),
+            "modelVersion": str(item.get("modelVersion") or response.get("modelVersion") or ""),
+            "redBalls": sorted(int(value) for value in item.get("redBalls") or []),
+            "blueBalls": sorted(int(value) for value in item.get("blueBalls") or []),
+        }
+        for item in response.get("predictions") or []
+    ]
+    payload = {
+        "modelVersion": response.get("modelVersion", ""),
+        "recentWindow": response.get("recentWindow", 0),
+        "requestPlan": response.get("requestPlan") or {},
+        "predictions": predictions,
+    }
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def refresh_ssq_state_settlements(draws: list[SsqDraw]) -> dict[str, Any]:
@@ -417,20 +478,32 @@ def build_research_backup(response: dict[str, Any]) -> dict[str, Any]:
 
 def settle_state_predictions(state: dict[str, Any], draws: list[SsqDraw]) -> dict[str, Any]:
     draws_by_issue = {draw.issue: draw for draw in draws}
-    predictions_by_issue: dict[str, list[dict[str, Any]]] = {}
+    predictions_by_run: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for prediction in state.get("predictions") or []:
         issue = str(prediction.get("targetIssue") or "")
         if issue:
-            predictions_by_issue.setdefault(issue, []).append(prediction)
-    settlements = {item.get("issue"): item for item in state.get("lotterySettlements") or []}
-    for issue, predictions in predictions_by_issue.items():
+            run_id = str(prediction.get("runId") or f"legacy-{issue}")
+            predictions_by_run.setdefault((issue, run_id), []).append(prediction)
+    settlements = {
+        (str(item.get("issue") or ""), str(item.get("runId") or f"legacy-{item.get('issue') or ''}")): item
+        for item in state.get("lotterySettlements") or []
+        if item.get("issue")
+    }
+    for (issue, run_id), predictions in predictions_by_run.items():
         draw = draws_by_issue.get(issue)
         if not draw:
             continue
         settlement = build_server_settlement(draw, predictions)
         if settlement:
-            settlements[issue] = settlement
-    state["lotterySettlements"] = [settlements[key] for key in sorted(settlements.keys(), reverse=True) if key]
+            settlement["runId"] = run_id
+            settlement["sourceIssue"] = predictions[0].get("sourceIssue", "")
+            settlement["generatedAt"] = predictions[0].get("generatedAt", "")
+            settlements[(issue, run_id)] = settlement
+    state["lotterySettlements"] = [
+        settlements[key]
+        for key in sorted(settlements.keys(), key=lambda item: (item[0], item[1]), reverse=True)
+        if key[0]
+    ]
     return state
 
 
@@ -1672,8 +1745,9 @@ def recommend(
     blue_scores = {number: detail["total"] for number, detail in blue_details.items()}
     rng = random.Random(stable_seed(f"{analysis['targetIssue']}|{len(draws)}|{red_count}|{blue_count}|{single_count}|{compound_count}"))
     candidates: list[Candidate] = []
-    candidates.extend(generate_candidates(red_scores, blue_scores, red_details, blue_details, single_count, 6, 1, rng, analysis, "单式"))
-    candidates.extend(generate_candidates(red_scores, blue_scores, red_details, blue_details, compound_count, red_count, blue_count, rng, analysis, plan_label(red_count, blue_count)))
+    enforce_shape = model_version != UNIFORM_RANDOM_MODEL_VERSION
+    candidates.extend(generate_candidates(red_scores, blue_scores, red_details, blue_details, single_count, 6, 1, rng, analysis, "单式", enforce_shape))
+    candidates.extend(generate_candidates(red_scores, blue_scores, red_details, blue_details, compound_count, red_count, blue_count, rng, analysis, plan_label(red_count, blue_count), enforce_shape))
     summary = analysis_summary(analysis)
     return [
         {
@@ -1703,6 +1777,7 @@ def generate_candidates(
     rng: random.Random,
     analysis: dict[str, Any],
     label: str,
+    enforce_shape: bool = True,
 ) -> list[Candidate]:
     if count <= 0:
         return []
@@ -1714,7 +1789,7 @@ def generate_candidates(
         reds = sorted(weighted_sample(red_scores, red_count, rng))
         blues = sorted(weighted_sample(blue_scores, blue_count, rng))
         key = (tuple(reds), tuple(blues))
-        if key in seen or not passes_shape(reds, analysis):
+        if key in seen or (enforce_shape and not passes_shape(reds, analysis)):
             continue
         seen.add(key)
         score = sum(red_scores[number] for number in reds) + sum(blue_scores[number] for number in blues)
@@ -1744,6 +1819,8 @@ def score_numbers(
     numbers: range,
     model_version: str = "recent_focus_v3",
 ) -> dict[int, float]:
+    if model_version == UNIFORM_RANDOM_MODEL_VERSION:
+        return {number: 1.0 for number in numbers}
     weights = MODEL_CONFIGS.get(model_version, MODEL_CONFIGS["recent_focus_v3"])
     max_full = max(full_frequency.values(), default=1)
     max_recent = max(recent_frequency.values(), default=1.0)
@@ -1768,6 +1845,20 @@ def score_breakdown(
     numbers: range,
     model_version: str = "recent_focus_v3",
 ) -> dict[int, dict[str, Any]]:
+    if model_version == UNIFORM_RANDOM_MODEL_VERSION:
+        return {
+            number: {
+                "total": 1.0,
+                "fullFrequencyScore": 0.0,
+                "recentScore": 0.0,
+                "omissionScore": 0.0,
+                "centerBiasScore": 0.0,
+                "fullCount": full_frequency[number],
+                "recentWeighted": round(recent_frequency[number], 4),
+                "missCount": misses[number],
+            }
+            for number in numbers
+        }
     weights = MODEL_CONFIGS.get(model_version, MODEL_CONFIGS["recent_focus_v3"])
     max_full = max(full_frequency.values(), default=1)
     max_recent = max(recent_frequency.values(), default=1.0)
@@ -2008,7 +2099,7 @@ def compare_models(
             red_count=red_count,
             blue_count=blue_count,
         )
-        for version in MODEL_CONFIGS
+        for version in EVALUATION_MODEL_VERSIONS
     ]
 
 
@@ -2030,6 +2121,9 @@ def backtest_model(
     prize_hits = 0
     bet_counts: list[int] = []
     distinct_blue_counts: list[int] = []
+    invested_amount = 0.0
+    simulated_prize_amount = 0.0
+    tier_counts = {"first": 0, "second": 0, "third": 0, "fourth": 0, "fifth": 0, "sixth": 0}
     issue_count = 0
     for index in range(start, len(ordered)):
         train_draws = list(reversed(ordered[:index]))
@@ -2059,6 +2153,11 @@ def backtest_model(
         prize_hits += int(any(item["prizeAmount"] > 0 for item in settled))
         bet_counts.append(sum(item["betCount"] for item in settled))
         distinct_blue_counts.append(len({blue for item in predictions for blue in item["blueBalls"]}))
+        invested_amount += sum(item["betCount"] * 2.0 for item in settled)
+        simulated_prize_amount += sum(item["prizeAmount"] for item in settled)
+        for item in settled:
+            for tier, count in item["tierCounts"].items():
+                tier_counts[tier] = tier_counts.get(tier, 0) + count
         issue_count += 1
     return {
         "version": model_version,
@@ -2069,7 +2168,154 @@ def backtest_model(
         "prizeHitRate": round(prize_hits / issue_count, 4) if issue_count else 0.0,
         "averageBetCount": round(sum(bet_counts) / issue_count, 4) if issue_count else 0.0,
         "averageDistinctBlueCount": round(sum(distinct_blue_counts) / issue_count, 4) if issue_count else 0.0,
+        "investedAmount": round(invested_amount, 2),
+        "simulatedPrizeAmount": round(simulated_prize_amount, 2),
+        "roi": round((simulated_prize_amount - invested_amount) / invested_amount, 4) if invested_amount else 0.0,
+        "tierCounts": tier_counts,
     }
+
+
+def build_ssq_model_evaluation(
+    draws: list[SsqDraw],
+    recent_window: int = 240,
+    sample_limit: int = SSQ_EVALUATION_SAMPLE_LIMIT,
+    fold_count: int = SSQ_EVALUATION_FOLD_COUNT,
+    single_count: int = 0,
+    compound_count: int = 1,
+    red_count: int = 6,
+    blue_count: int = 3,
+) -> dict[str, Any]:
+    fold_reports: dict[str, list[dict[str, Any]]] = {version: [] for version in EVALUATION_MODEL_VERSIONS}
+    for fold_index in range(fold_count):
+        subset = draws[fold_index * sample_limit:]
+        if len(subset) < 30 + sample_limit:
+            break
+        for version in EVALUATION_MODEL_VERSIONS:
+            fold_reports[version].append(
+                backtest_model(
+                    subset,
+                    version,
+                    recent_window,
+                    sample_limit,
+                    single_count=single_count,
+                    compound_count=compound_count,
+                    red_count=red_count,
+                    blue_count=blue_count,
+                )
+            )
+    reports = [aggregate_model_evaluation(version, reports) for version, reports in fold_reports.items() if reports]
+    recommended, selection_reason = select_ssq_model(reports)
+    return {
+        "evaluationVersion": SSQ_EVALUATION_VERSION,
+        "latestIssue": draws[0].issue if draws else "",
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "recentWindow": recent_window,
+        "sampleLimit": sample_limit,
+        "foldCount": max((len(items) for items in fold_reports.values()), default=0),
+        "singleCount": single_count,
+        "compoundCount": compound_count,
+        "redCount": red_count,
+        "blueCount": blue_count,
+        "modelReports": reports,
+        "recommendedModelVersion": recommended,
+        "selectionReason": selection_reason,
+    }
+
+
+def aggregate_model_evaluation(version: str, reports: list[dict[str, Any]]) -> dict[str, Any]:
+    issue_count = sum(item["issueCount"] for item in reports)
+    invested = sum(item["investedAmount"] for item in reports)
+    prize = sum(item["simulatedPrizeAmount"] for item in reports)
+    tiers = {"first": 0, "second": 0, "third": 0, "fourth": 0, "fifth": 0, "sixth": 0}
+    for report in reports:
+        for tier, count in report["tierCounts"].items():
+            tiers[tier] = tiers.get(tier, 0) + count
+    return {
+        "version": version,
+        "issueCount": issue_count,
+        "averageBestRedHits": round(sum(item["averageBestRedHits"] * item["issueCount"] for item in reports) / issue_count, 4) if issue_count else 0.0,
+        "blueHitRate": round(sum(item["blueHitRate"] * item["issueCount"] for item in reports) / issue_count, 4) if issue_count else 0.0,
+        "atLeastThreeRedRate": round(sum(item["atLeastThreeRedRate"] * item["issueCount"] for item in reports) / issue_count, 4) if issue_count else 0.0,
+        "prizeHitRate": round(sum(item["prizeHitRate"] * item["issueCount"] for item in reports) / issue_count, 4) if issue_count else 0.0,
+        "investedAmount": round(invested, 2),
+        "simulatedPrizeAmount": round(prize, 2),
+        "roi": round((prize - invested) / invested, 4) if invested else 0.0,
+        "tierCounts": tiers,
+        "foldReports": reports,
+    }
+
+
+def select_ssq_model(reports: list[dict[str, Any]]) -> tuple[str, str]:
+    default = next((item for item in reports if item["version"] == "recent_focus_v3"), None)
+    if not default:
+        return "recent_focus_v3", "缺少默认模型评估，保持当前默认。"
+    eligible: list[tuple[dict[str, Any], int]] = []
+    for candidate in reports:
+        if candidate["version"] in {default["version"], UNIFORM_RANDOM_MODEL_VERSION}:
+            continue
+        better_folds = sum(
+            candidate_fold["roi"] > default_fold["roi"]
+            for candidate_fold, default_fold in zip(candidate["foldReports"], default["foldReports"])
+        )
+        if better_folds >= 4 and candidate["roi"] >= default["roi"] + 0.05:
+            eligible.append((candidate, better_folds))
+    if not eligible:
+        return default["version"], "没有模型在至少 4 个时间段且总 ROI 高出 5 个百分点，保持默认。"
+    selected, better_folds = max(eligible, key=lambda item: (item[0]["roi"], item[1], item[0]["averageBestRedHits"]))
+    return selected["version"], f"在 {better_folds} 个时间段 ROI 更高，且汇总 ROI 高出默认至少 5 个百分点。"
+
+
+def load_ssq_model_evaluation() -> dict[str, Any] | None:
+    if not SSQ_MODEL_EVALUATION_FILE.exists():
+        return None
+    try:
+        value = json.loads(SSQ_MODEL_EVALUATION_FILE.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def save_ssq_model_evaluation(report: dict[str, Any]) -> dict[str, Any]:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    SSQ_MODEL_EVALUATION_FILE.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    return report
+
+
+def ensure_ssq_model_evaluation(
+    draws: list[SsqDraw],
+    recent_window: int = 240,
+    sample_limit: int = SSQ_EVALUATION_SAMPLE_LIMIT,
+    fold_count: int = SSQ_EVALUATION_FOLD_COUNT,
+    single_count: int = 0,
+    compound_count: int = 1,
+    red_count: int = 6,
+    blue_count: int = 3,
+) -> dict[str, Any]:
+    cached = load_ssq_model_evaluation()
+    expected = {
+        "evaluationVersion": SSQ_EVALUATION_VERSION,
+        "latestIssue": draws[0].issue if draws else "",
+        "recentWindow": recent_window,
+        "sampleLimit": sample_limit,
+        "foldCount": fold_count,
+        "singleCount": single_count,
+        "compoundCount": compound_count,
+        "redCount": red_count,
+        "blueCount": blue_count,
+    }
+    if cached and all(cached.get(key) == value for key, value in expected.items()):
+        return cached
+    report = build_ssq_model_evaluation(
+        draws,
+        recent_window=recent_window,
+        sample_limit=sample_limit,
+        fold_count=fold_count,
+        single_count=single_count,
+        compound_count=compound_count,
+        red_count=red_count,
+        blue_count=blue_count,
+    )
+    return save_ssq_model_evaluation(report)
 
 
 def optimize_budget_plan(

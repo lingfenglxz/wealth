@@ -38,7 +38,7 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
     private val storedRecentWindow = prefs.getInt("lottery_recent_window", defaultRecentWindow)
     private val hasStoredRecentWindow = prefs.contains("lottery_recent_window")
     val budgetBets = MutableStateFlow(prefs.getInt("lottery_budget_bets", 252))
-    private val defaultLotteryModelVersion = "recent_focus_v3"
+    private val defaultLotteryModelVersion = "auto"
     private val storedLotteryModelVersion = prefs.getString("lottery_model_version", null)
     private val shouldMigrateDefaultModel =
         !prefs.getBoolean("lottery_single_group_defaults_migrated", false) &&

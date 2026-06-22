@@ -1,0 +1,15 @@
+{
+  "evaluationVersion": "ssq-evaluation-v1",
+  "latestIssue": "2026070",
+  "generatedAt": "2026-06-22T02:10:25.385097+00:00",
+  "recentWindow": 240,
+  "sampleLimit": 60,
+  "foldCount": 0,
+  "singleCount": 0,
+  "compoundCount": 1,
+  "redCount": 6,
+  "blueCount": 3,
+  "modelReports": [],
+  "recommendedModelVersion": "recent_focus_v3",
+  "selectionReason": "缺少默认模型评估，保持当前默认。"
+}

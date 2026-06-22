@@ -50,7 +50,7 @@ class WealthRepository(context: Context) {
         compoundCount: Int = 1,
         compoundRedCount: Int = 6,
         compoundBlueCount: Int = 3,
-        modelVersion: String = "recent_focus_v3",
+        modelVersion: String = "auto",
         recentWindow: Int = 240,
         budgetBets: Int = 252
     ): LotteryRecommendationResponse {
@@ -602,7 +602,7 @@ internal fun buildSsqRecommendationPath(
     compoundCount: Int = 1,
     compoundRedCount: Int = 6,
     compoundBlueCount: Int = 3,
-    modelVersion: String = "recent_focus_v3",
+    modelVersion: String = "auto",
     recentWindow: Int = 240,
     budgetBets: Int = 252,
     limit: Int = 3000
