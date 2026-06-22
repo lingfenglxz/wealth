@@ -46,20 +46,26 @@ class WealthRepository(context: Context) {
 
     suspend fun generateLotteryPredictionsFromServer(
         baseUrl: String,
-        singleCount: Int = 3,
+        singleCount: Int = 0,
         compoundCount: Int = 1,
-        compoundRedCount: Int = 9,
+        compoundRedCount: Int = 6,
         compoundBlueCount: Int = 3,
-        modelVersion: String = "balanced_v2",
-        recentWindow: Int = 120,
+        modelVersion: String = "recent_focus_v3",
+        recentWindow: Int = 240,
         budgetBets: Int = 252
     ): LotteryRecommendationResponse {
         val normalized = baseUrl.trim().trimEnd('/')
         if (normalized.isBlank()) throw IOException("请先填写服务端地址")
         val text = fetchText(
-            "$normalized/api/lottery/ssq/recommendations" +
-                "?singleCount=$singleCount&compoundCount=$compoundCount&redCount=$compoundRedCount&blueCount=$compoundBlueCount" +
-                "&modelVersion=$modelVersion&recentWindow=$recentWindow&budgetBets=$budgetBets&limit=3000"
+            normalized + buildSsqRecommendationPath(
+                singleCount = singleCount,
+                compoundCount = compoundCount,
+                compoundRedCount = compoundRedCount,
+                compoundBlueCount = compoundBlueCount,
+                modelVersion = modelVersion,
+                recentWindow = recentWindow,
+                budgetBets = budgetBets
+            )
         )
         val draws = LotteryOfficialParser.parseServerJson(text)
         if (draws.size < MIN_LOTTERY_SAMPLE_SIZE) {
@@ -243,7 +249,7 @@ class WealthRepository(context: Context) {
                 createdAt = getLong("createdAt"),
                 targetIssue = optString("targetIssue", ""),
                 sourceIssue = optString("sourceIssue", ""),
-                modelVersion = optString("modelVersion", "balanced_v2"),
+                modelVersion = optString("modelVersion", "recent_focus_v3"),
                 redBalls = getJSONArray("redBalls").toInts(),
                 blueBalls = optJSONArray("blueBalls")?.toInts() ?: listOf(getInt("blueBall")),
                 score = getDouble("score"),
@@ -258,7 +264,7 @@ class WealthRepository(context: Context) {
                 createdAt = getLong("createdAt"),
                 targetIssue = getString("targetIssue"),
                 sourceIssue = optString("sourceIssue", ""),
-                modelVersion = optString("modelVersion", "balanced_v2"),
+                modelVersion = optString("modelVersion", "recent_focus_v3"),
                 reportJson = optJSONObject("report")?.toString() ?: "{}"
             )
         })
@@ -311,7 +317,7 @@ class WealthRepository(context: Context) {
                 createdAt = createdAt,
                 targetIssue = item.optString("targetIssue"),
                 sourceIssue = item.optString("sourceIssue"),
-                modelVersion = item.optString("modelVersion", "balanced_v2"),
+                modelVersion = item.optString("modelVersion", "recent_focus_v3"),
                 redBalls = reds,
                 blueBalls = blues,
                 score = item.optDouble("score"),
@@ -335,7 +341,10 @@ class WealthRepository(context: Context) {
                 issueCount = it.optInt("issueCount"),
                 averageBestRedHits = it.optDouble("averageBestRedHits"),
                 blueHitRate = it.optDouble("blueHitRate"),
-                atLeastThreeRedRate = it.optDouble("atLeastThreeRedRate")
+                atLeastThreeRedRate = it.optDouble("atLeastThreeRedRate"),
+                prizeHitRate = it.optDouble("prizeHitRate"),
+                averageBetCount = it.optDouble("averageBetCount"),
+                averageDistinctBlueCount = it.optDouble("averageDistinctBlueCount")
             )
         }
         val comparison = root.optJSONArray("modelComparison").toObjects {
@@ -343,7 +352,10 @@ class WealthRepository(context: Context) {
                 version = getString("version"),
                 averageBestRedHits = getDouble("averageBestRedHits"),
                 blueHitRate = getDouble("blueHitRate"),
-                atLeastThreeRedRate = getDouble("atLeastThreeRedRate")
+                atLeastThreeRedRate = getDouble("atLeastThreeRedRate"),
+                prizeHitRate = optDouble("prizeHitRate"),
+                averageBetCount = optDouble("averageBetCount"),
+                averageDistinctBlueCount = optDouble("averageDistinctBlueCount")
             )
         }
         val budgetPlan = root.optJSONObject("budgetPlan")?.let {
@@ -357,7 +369,7 @@ class WealthRepository(context: Context) {
         }
         val rankings = root.optJSONObject("numberRankings")
         return LotteryResearchReport(
-            modelVersion = root.optString("modelVersion", "balanced_v2"),
+            modelVersion = root.optString("modelVersion", "recent_focus_v3"),
             recentWindow = root.optInt("recentWindow", 120),
             backtest = backtest,
             modelComparison = comparison,
@@ -378,6 +390,9 @@ class WealthRepository(context: Context) {
                     .put("averageBestRedHits", it.averageBestRedHits)
                     .put("blueHitRate", it.blueHitRate)
                     .put("atLeastThreeRedRate", it.atLeastThreeRedRate)
+                    .put("prizeHitRate", it.prizeHitRate)
+                    .put("averageBetCount", it.averageBetCount)
+                    .put("averageDistinctBlueCount", it.averageDistinctBlueCount)
             })
             .put("modelComparison", JSONArray().also { array ->
                 modelComparison.forEach {
@@ -385,7 +400,10 @@ class WealthRepository(context: Context) {
                         .put("version", it.version)
                         .put("averageBestRedHits", it.averageBestRedHits)
                         .put("blueHitRate", it.blueHitRate)
-                        .put("atLeastThreeRedRate", it.atLeastThreeRedRate))
+                        .put("atLeastThreeRedRate", it.atLeastThreeRedRate)
+                        .put("prizeHitRate", it.prizeHitRate)
+                        .put("averageBetCount", it.averageBetCount)
+                        .put("averageDistinctBlueCount", it.averageDistinctBlueCount))
                 }
             })
             .put("budgetPlan", budgetPlan?.let {
@@ -578,3 +596,17 @@ class WealthRepository(context: Context) {
     }
 
 }
+
+internal fun buildSsqRecommendationPath(
+    singleCount: Int = 0,
+    compoundCount: Int = 1,
+    compoundRedCount: Int = 6,
+    compoundBlueCount: Int = 3,
+    modelVersion: String = "recent_focus_v3",
+    recentWindow: Int = 240,
+    budgetBets: Int = 252,
+    limit: Int = 3000
+): String =
+    "/api/lottery/ssq/recommendations" +
+        "?singleCount=$singleCount&compoundCount=$compoundCount&redCount=$compoundRedCount&blueCount=$compoundBlueCount" +
+        "&modelVersion=$modelVersion&recentWindow=$recentWindow&budgetBets=$budgetBets&limit=$limit"

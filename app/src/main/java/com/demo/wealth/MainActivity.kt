@@ -610,7 +610,7 @@ fun LotteryAnalysisCard(
         val targetIssue = prediction?.targetIssue?.ifBlank { null } ?: nextIssueLabel(latestDraw.issue)
         Text("目标期号：第 $targetIssue 期；最新开奖：第 ${latestDraw.issue} 期 ${latestDraw.date}", style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(8.dp))
-        MetricRow("样本期数", draws.size.toString(), "当前复式注数", (LotteryRules.combinationCount(compoundRedCount, 6) * compoundBlueCount).toString())
+        MetricRow("样本期数", draws.size.toString(), "当前组合注数", (LotteryRules.combinationCount(compoundRedCount, 6) * compoundBlueCount).toString())
         Spacer(Modifier.height(8.dp))
         Text("计算过程：服务端综合全量频率、最近窗口加权、遗漏期数、三区分布、奇偶比、和值范围和连号约束，再按评分稳定采样。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         Text("红球热号 ${hotReds.joinToString(" ")}；红球遗漏 ${overdueReds.joinToString(" ")}；蓝球热号 ${hotBlues.joinToString(" ")}", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
@@ -635,14 +635,16 @@ fun ModelParameterCard(
         Text("模型版本", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-            listOf("balanced_v2" to "均衡", "recent_focus_v3" to "近期", "baseline_v1" to "基线").forEach { (value, label) ->
+            listOf("recent_focus_v3" to "近期", "hit_rate_v4" to "命中", "balanced_v2" to "均衡", "baseline_v1" to "基线").forEach { (value, label) ->
                 ChoiceButton(label, selected = modelVersion == value) { onModelVersionChange(value) }
             }
         }
         Spacer(Modifier.height(10.dp))
         CountStepper("最近窗口", recentWindow, 30, 500, step = 10, onChange = onRecentWindowChange)
         Spacer(Modifier.height(8.dp))
-        Text("预算上限只用于计算服务端建议，不会自动改动下面的当前复式方案。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+        Text("单组 6+3 当前建议使用“近期”模型，最近窗口 240。命中模型 hit_rate_v4 仍可手动切换，适合你想加重遗漏因子时试跑对比。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(8.dp))
+        Text("预算上限只用于计算服务端建议，不会自动改动下面的当前号码组合。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(8.dp))
         CountStepper("预算上限（注）", budgetBets, 1, 5000, onChange = onBudgetChange)
     }
@@ -652,9 +654,9 @@ fun ModelParameterCard(
 fun CompoundPlanCard(redCount: Int, blueCount: Int, report: LotteryResearchReport?, onChange: (Int, Int) -> Unit) {
     val bets = LotteryRules.combinationCount(redCount, 6) * blueCount
     Panel {
-        Text("复式方案", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text("号码组合", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
-        Text("当前实际生成方案：${redCount}+${blueCount}，约 $bets 注。这里控制你点“生成推荐”后真正生成哪种复式。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+        Text("当前实际生成：一组 ${redCount}+${blueCount}，约 $bets 注。这里控制你点“生成推荐”后真正生成的红球和蓝球数量。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(10.dp))
         CountStepper("红球", redCount, 6, 20) { onChange(it, blueCount) }
         Spacer(Modifier.height(8.dp))
@@ -665,7 +667,7 @@ fun CompoundPlanCard(redCount: Int, blueCount: Int, report: LotteryResearchRepor
             Text(plan.reason, color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(8.dp))
             Button(onClick = { onChange(plan.redCount, plan.blueCount) }) {
-                Text("设为当前复式方案")
+                Text("设为当前组合")
             }
         }
     }
@@ -900,6 +902,12 @@ fun LotteryBacktestCard(report: com.demo.wealth.data.LotteryBacktestReport) {
         MetricRow("验证期数", report.issueCount.toString(), "平均最佳红球", "%.2f".format(report.averageBestRedHits))
         Spacer(Modifier.height(8.dp))
         MetricRow("蓝球命中率", percent(report.blueHitRate), "至少3红", percent(report.atLeastThreeRedRate))
+        Spacer(Modifier.height(8.dp))
+        MetricRow("模拟中奖率", percent(report.prizeHitRate), "平均注数", "%.1f".format(report.averageBetCount))
+        if (report.averageDistinctBlueCount > 0.0) {
+            Spacer(Modifier.height(4.dp))
+            Text("平均蓝球覆盖 ${"%.1f".format(report.averageDistinctBlueCount)} 个号；当前回测按实际生成方案统计。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 
@@ -910,7 +918,7 @@ fun ModelComparisonCard(comparisons: List<com.demo.wealth.data.LotteryModelCompa
         Spacer(Modifier.height(8.dp))
         comparisons.forEach { item ->
             Text(
-                "${item.version} · 平均最佳红球 ${"%.2f".format(item.averageBestRedHits)} · 蓝球 ${percent(item.blueHitRate)} · 至少3红 ${percent(item.atLeastThreeRedRate)}",
+                "${item.version} · 模拟中奖 ${percent(item.prizeHitRate)} · 平均最佳红球 ${"%.2f".format(item.averageBestRedHits)} · 蓝球 ${percent(item.blueHitRate)} · 至少3红 ${percent(item.atLeastThreeRedRate)}",
                 color = Color(0xFF61706C),
                 style = MaterialTheme.typography.bodySmall
             )

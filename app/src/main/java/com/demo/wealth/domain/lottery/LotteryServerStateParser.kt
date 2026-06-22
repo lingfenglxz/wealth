@@ -23,7 +23,7 @@ object LotteryServerStateParser {
                     createdAt = createdAt,
                     targetIssue = optString("targetIssue"),
                     sourceIssue = optString("sourceIssue"),
-                    modelVersion = optString("modelVersion", "balanced_v2"),
+                    modelVersion = optString("modelVersion", "recent_focus_v3"),
                     redBalls = optJSONArray("redBalls").toInts(),
                     blueBalls = optJSONArray("blueBalls").toInts(),
                     score = optDouble("score"),
@@ -39,7 +39,7 @@ object LotteryServerStateParser {
                     createdAt = createdAt,
                     targetIssue = optString("targetIssue"),
                     sourceIssue = optString("sourceIssue"),
-                    modelVersion = optString("modelVersion", report.optString("modelVersion", "balanced_v2")),
+                    modelVersion = optString("modelVersion", report.optString("modelVersion", "recent_focus_v3")),
                     reportJson = report.toString()
                 )
             },

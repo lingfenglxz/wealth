@@ -15,14 +15,20 @@ data class LotteryBacktestReport(
     val issueCount: Int,
     val averageBestRedHits: Double,
     val blueHitRate: Double,
-    val atLeastThreeRedRate: Double
+    val atLeastThreeRedRate: Double,
+    val prizeHitRate: Double = 0.0,
+    val averageBetCount: Double = 0.0,
+    val averageDistinctBlueCount: Double = 0.0
 )
 
 data class LotteryModelComparison(
     val version: String,
     val averageBestRedHits: Double,
     val blueHitRate: Double,
-    val atLeastThreeRedRate: Double
+    val atLeastThreeRedRate: Double,
+    val prizeHitRate: Double = 0.0,
+    val averageBetCount: Double = 0.0,
+    val averageDistinctBlueCount: Double = 0.0
 )
 
 data class LotteryBudgetPlan(

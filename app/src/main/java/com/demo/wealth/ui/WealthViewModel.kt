@@ -32,15 +32,38 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
     val message = MutableStateFlow("准备就绪")
     private val prefs = application.getSharedPreferences("wealthlab", Context.MODE_PRIVATE)
     val lotteryServerUrl = MutableStateFlow(prefs.getString("lottery_server_url", "") ?: "")
-    val compoundRedCount = MutableStateFlow(prefs.getInt("compound_red_count", 9))
+    val compoundRedCount = MutableStateFlow(prefs.getInt("compound_red_count", 6))
     val compoundBlueCount = MutableStateFlow(prefs.getInt("compound_blue_count", 3))
-    val recentWindow = MutableStateFlow(prefs.getInt("lottery_recent_window", 120))
+    private val defaultRecentWindow = 240
+    private val storedRecentWindow = prefs.getInt("lottery_recent_window", defaultRecentWindow)
+    private val hasStoredRecentWindow = prefs.contains("lottery_recent_window")
     val budgetBets = MutableStateFlow(prefs.getInt("lottery_budget_bets", 252))
-    val modelVersion = MutableStateFlow(prefs.getString("lottery_model_version", "balanced_v2") ?: "balanced_v2")
+    private val defaultLotteryModelVersion = "recent_focus_v3"
+    private val storedLotteryModelVersion = prefs.getString("lottery_model_version", null)
+    private val shouldMigrateDefaultModel =
+        !prefs.getBoolean("lottery_single_group_defaults_migrated", false) &&
+            (storedLotteryModelVersion.isNullOrBlank() || storedLotteryModelVersion in setOf("balanced_v2", "hit_rate_v4"))
+    private val shouldMigrateRecentWindow =
+        !prefs.getBoolean("lottery_single_group_defaults_migrated", false) &&
+            (!hasStoredRecentWindow || storedRecentWindow == 120)
+    val recentWindow = MutableStateFlow(if (shouldMigrateRecentWindow) defaultRecentWindow else storedRecentWindow)
+    val modelVersion = MutableStateFlow(
+        if (shouldMigrateDefaultModel) defaultLotteryModelVersion else storedLotteryModelVersion ?: defaultLotteryModelVersion
+    )
     val researchReport: StateFlow<LotteryResearchReport?> =
         repository.lotteryResearchReport.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     init {
+        if (shouldMigrateDefaultModel || shouldMigrateRecentWindow) {
+            val editor = prefs.edit()
+            if (shouldMigrateDefaultModel) {
+                editor.putString("lottery_model_version", defaultLotteryModelVersion)
+            }
+            if (shouldMigrateRecentWindow) {
+                editor.putInt("lottery_recent_window", recentWindow.value)
+            }
+            editor.putBoolean("lottery_single_group_defaults_migrated", true).apply()
+        }
         viewModelScope.launch {
             repository.refreshLotterySettlements()
         }
@@ -93,7 +116,7 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
                 )
                 val predictions = response.predictions
                 val target = predictions.firstOrNull()?.targetIssue ?: "下一"
-                message.value = "服务端已生成第 ${target} 期 ${predictions.size} 组推荐，复式方案 ${redCount}+${blueCount}"
+                message.value = "服务端已生成第 ${target} 期 ${redCount}+${blueCount} 推荐"
             }.onFailure {
                 message.value = "生成失败：${friendlyError(it)}"
             }

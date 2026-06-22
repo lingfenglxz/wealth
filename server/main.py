@@ -44,9 +44,10 @@ HEADERS = {
 }
 
 MODEL_CONFIGS = {
-    "baseline_v1": {"full": 0.55, "recent": 0.0, "miss": 0.35, "center": 0.10},
-    "balanced_v2": {"full": 0.34, "recent": 0.36, "miss": 0.22, "center": 0.08},
     "recent_focus_v3": {"full": 0.20, "recent": 0.50, "miss": 0.22, "center": 0.08},
+    "hit_rate_v4": {"full": 0.25, "recent": 0.40, "miss": 0.28, "center": 0.07},
+    "balanced_v2": {"full": 0.34, "recent": 0.36, "miss": 0.22, "center": 0.08},
+    "baseline_v1": {"full": 0.55, "recent": 0.0, "miss": 0.35, "center": 0.10},
 }
 
 
@@ -110,12 +111,12 @@ async def ssq_draws(
 
 @app.get("/api/lottery/ssq/recommendations")
 async def ssq_recommendations(
-    singleCount: int = Query(default=3, ge=0, le=10),
+    singleCount: int = Query(default=0, ge=0, le=10),
     compoundCount: int = Query(default=1, ge=0, le=5),
-    redCount: int = Query(default=9, ge=6, le=20),
+    redCount: int = Query(default=6, ge=6, le=20),
     blueCount: int = Query(default=3, ge=1, le=16),
-    modelVersion: str = Query(default="balanced_v2"),
-    recentWindow: int = Query(default=120, ge=30, le=500),
+    modelVersion: str = Query(default="recent_focus_v3"),
+    recentWindow: int = Query(default=240, ge=30, le=500),
     budgetBets: int = Query(default=252, ge=1, le=5000),
     limit: int = Query(default=3000, ge=30, le=5000),
     refresh: bool = Query(default=False),
@@ -129,7 +130,7 @@ async def ssq_recommendations(
             "analysis": analyze(draws, recentWindow, modelVersion),
             "predictions": [],
         }
-    model_version = modelVersion if modelVersion in MODEL_CONFIGS else "balanced_v2"
+    model_version = modelVersion if modelVersion in MODEL_CONFIGS else "recent_focus_v3"
     analysis = analyze(draws, recentWindow, model_version)
     predictions = recommend(
         draws=draws,
@@ -141,7 +142,14 @@ async def ssq_recommendations(
         model_version=model_version,
         recent_window=recentWindow,
     )
-    comparison = compare_models(draws, recentWindow)
+    comparison = compare_models(
+        draws,
+        recentWindow,
+        single_count=singleCount,
+        compound_count=compoundCount,
+        red_count=redCount,
+        blue_count=blueCount,
+    )
     selected_backtest = next((item for item in comparison if item["version"] == model_version), None)
     number_rankings = build_number_rankings(draws, model_version, recentWindow)
     response = {
@@ -391,7 +399,7 @@ def build_research_backup(response: dict[str, Any]) -> dict[str, Any]:
     predictions = response.get("predictions") or []
     first = predictions[0] if predictions else {}
     report = {
-        "modelVersion": response.get("modelVersion", "balanced_v2"),
+        "modelVersion": response.get("modelVersion", "recent_focus_v3"),
         "recentWindow": response.get("recentWindow", 120),
         "backtest": response.get("backtest"),
         "modelComparison": response.get("modelComparison") or [],
@@ -1607,7 +1615,7 @@ def short_error(error: Exception) -> str:
     return message[:80] if message else error.__class__.__name__
 
 
-def analyze(draws: list[SsqDraw], recent_window: int = 120, model_version: str = "balanced_v2") -> dict[str, Any]:
+def analyze(draws: list[SsqDraw], recent_window: int = 240, model_version: str = "recent_focus_v3") -> dict[str, Any]:
     if not draws:
         return {"sampleSize": 0}
     ordered = list(reversed(draws))
@@ -1665,7 +1673,7 @@ def recommend(
     rng = random.Random(stable_seed(f"{analysis['targetIssue']}|{len(draws)}|{red_count}|{blue_count}|{single_count}|{compound_count}"))
     candidates: list[Candidate] = []
     candidates.extend(generate_candidates(red_scores, blue_scores, red_details, blue_details, single_count, 6, 1, rng, analysis, "单式"))
-    candidates.extend(generate_candidates(red_scores, blue_scores, red_details, blue_details, compound_count, red_count, blue_count, rng, analysis, "复式"))
+    candidates.extend(generate_candidates(red_scores, blue_scores, red_details, blue_details, compound_count, red_count, blue_count, rng, analysis, plan_label(red_count, blue_count)))
     summary = analysis_summary(analysis)
     return [
         {
@@ -1734,9 +1742,9 @@ def score_numbers(
     recent_frequency: dict[int, float],
     misses: dict[int, int],
     numbers: range,
-    model_version: str = "balanced_v2",
+    model_version: str = "recent_focus_v3",
 ) -> dict[int, float]:
-    weights = MODEL_CONFIGS.get(model_version, MODEL_CONFIGS["balanced_v2"])
+    weights = MODEL_CONFIGS.get(model_version, MODEL_CONFIGS["recent_focus_v3"])
     max_full = max(full_frequency.values(), default=1)
     max_recent = max(recent_frequency.values(), default=1.0)
     max_miss = max(misses.values(), default=1)
@@ -1758,9 +1766,9 @@ def score_breakdown(
     recent_frequency: dict[int, float],
     misses: dict[int, int],
     numbers: range,
-    model_version: str = "balanced_v2",
+    model_version: str = "recent_focus_v3",
 ) -> dict[int, dict[str, Any]]:
-    weights = MODEL_CONFIGS.get(model_version, MODEL_CONFIGS["balanced_v2"])
+    weights = MODEL_CONFIGS.get(model_version, MODEL_CONFIGS["recent_focus_v3"])
     max_full = max(full_frequency.values(), default=1)
     max_recent = max(recent_frequency.values(), default=1.0)
     max_miss = max(misses.values(), default=1)
@@ -1829,7 +1837,7 @@ def rank_numbers(
     numbers: range,
     reverse: bool,
     size: int,
-    model_version: str = "balanced_v2",
+    model_version: str = "recent_focus_v3",
 ) -> list[int]:
     scored = score_numbers(full_frequency, recent_frequency, misses, numbers, model_version)
     return [number for number, _ in sorted(scored.items(), key=lambda item: (-item[1], item[0]) if reverse else (item[1], item[0]))[:size]]
@@ -1837,6 +1845,10 @@ def rank_numbers(
 
 def top_by_value(values: dict[int, int], reverse: bool, size: int) -> list[int]:
     return [number for number, _ in sorted(values.items(), key=lambda item: (-item[1], item[0]) if reverse else (item[1], item[0]))[:size]]
+
+
+def plan_label(red_count: int, blue_count: int) -> str:
+    return "单式" if red_count == 6 and blue_count == 1 else "复式"
 
 
 def zone_distribution(reds: list[int]) -> list[int]:
@@ -1976,16 +1988,48 @@ def ranking_summary(rank: int, recent_score: float, omission_score: float) -> st
     return "当前综合评分靠后，暂未成为优先候选。"
 
 
-def compare_models(draws: list[SsqDraw], recent_window: int, sample_limit: int = 60) -> list[dict[str, Any]]:
-    return [backtest_model(draws, version, recent_window, sample_limit) for version in MODEL_CONFIGS]
+def compare_models(
+    draws: list[SsqDraw],
+    recent_window: int,
+    sample_limit: int = 60,
+    single_count: int = 0,
+    compound_count: int = 1,
+    red_count: int = 6,
+    blue_count: int = 3,
+) -> list[dict[str, Any]]:
+    return [
+        backtest_model(
+            draws,
+            version,
+            recent_window,
+            sample_limit,
+            single_count=single_count,
+            compound_count=compound_count,
+            red_count=red_count,
+            blue_count=blue_count,
+        )
+        for version in MODEL_CONFIGS
+    ]
 
 
-def backtest_model(draws: list[SsqDraw], model_version: str, recent_window: int, sample_limit: int) -> dict[str, Any]:
+def backtest_model(
+    draws: list[SsqDraw],
+    model_version: str,
+    recent_window: int,
+    sample_limit: int,
+    single_count: int = 0,
+    compound_count: int = 1,
+    red_count: int = 6,
+    blue_count: int = 3,
+) -> dict[str, Any]:
     ordered = list(reversed(draws))
     start = max(30, len(ordered) - sample_limit)
     best_red_hits: list[int] = []
     blue_hits = 0
     at_least_three = 0
+    prize_hits = 0
+    bet_counts: list[int] = []
+    distinct_blue_counts: list[int] = []
     issue_count = 0
     for index in range(start, len(ordered)):
         train_draws = list(reversed(ordered[:index]))
@@ -1993,14 +2037,28 @@ def backtest_model(draws: list[SsqDraw], model_version: str, recent_window: int,
         if len(train_draws) < 30:
             continue
         analysis = analyze(train_draws, recent_window, model_version)
-        predictions = recommend(train_draws, 3, 0, 9, 3, analysis, model_version, recent_window)
+        predictions = recommend(
+            train_draws,
+            single_count,
+            compound_count,
+            red_count,
+            blue_count,
+            analysis,
+            model_version,
+            recent_window,
+        )
         if not predictions:
             continue
         red_hit = max(len(set(item["redBalls"]) & set(actual.redBalls)) for item in predictions)
         blue_hit = any(actual.blueBall in item["blueBalls"] for item in predictions)
+        settled = [settle_server_prediction(item, actual) for item in predictions]
+        settled = [item for item in settled if item]
         best_red_hits.append(red_hit)
         blue_hits += int(blue_hit)
         at_least_three += int(red_hit >= 3)
+        prize_hits += int(any(item["prizeAmount"] > 0 for item in settled))
+        bet_counts.append(sum(item["betCount"] for item in settled))
+        distinct_blue_counts.append(len({blue for item in predictions for blue in item["blueBalls"]}))
         issue_count += 1
     return {
         "version": model_version,
@@ -2008,6 +2066,9 @@ def backtest_model(draws: list[SsqDraw], model_version: str, recent_window: int,
         "averageBestRedHits": round(sum(best_red_hits) / issue_count, 4) if issue_count else 0.0,
         "blueHitRate": round(blue_hits / issue_count, 4) if issue_count else 0.0,
         "atLeastThreeRedRate": round(at_least_three / issue_count, 4) if issue_count else 0.0,
+        "prizeHitRate": round(prize_hits / issue_count, 4) if issue_count else 0.0,
+        "averageBetCount": round(sum(bet_counts) / issue_count, 4) if issue_count else 0.0,
+        "averageDistinctBlueCount": round(sum(distinct_blue_counts) / issue_count, 4) if issue_count else 0.0,
     }
 
 

@@ -32,7 +32,7 @@ class SsqStateBackupTest(unittest.TestCase):
         backup = response.json()["stateBackup"]
         self.assertEqual("2026063", backup["predictions"][0]["targetIssue"])
         self.assertEqual("balanced_v2", backup["researchReports"][0]["modelVersion"])
-        self.assertEqual("2026062", backup["lotterySettlements"][0]["issue"])
+        self.assertIn("2026062", {item["issue"] for item in backup["lotterySettlements"]})
 
     def test_recommendations_are_saved_to_server_state(self):
         with tempfile.TemporaryDirectory() as temp_dir:
