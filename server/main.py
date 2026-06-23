@@ -54,7 +54,7 @@ MODEL_CONFIGS = {
 }
 UNIFORM_RANDOM_MODEL_VERSION = "uniform_random_v0"
 EVALUATION_MODEL_VERSIONS = [*MODEL_CONFIGS, UNIFORM_RANDOM_MODEL_VERSION]
-SSQ_EVALUATION_VERSION = "ssq-evaluation-v1"
+SSQ_EVALUATION_VERSION = "ssq-evaluation-v3"
 SSQ_EVALUATION_SAMPLE_LIMIT = 60
 SSQ_EVALUATION_FOLD_COUNT = 6
 
@@ -144,8 +144,8 @@ async def ssq_recommendations(
         draws,
         recent_window=recentWindow,
     )
-    model_version = evaluation["recommendedModelVersion"] if modelVersion in {"auto", "recent_focus_v3"} else modelVersion
-    if model_version not in MODEL_CONFIGS:
+    model_version = UNIFORM_RANDOM_MODEL_VERSION if modelVersion == "auto" else modelVersion
+    if model_version not in {*MODEL_CONFIGS, UNIFORM_RANDOM_MODEL_VERSION}:
         model_version = "recent_focus_v3"
     analysis = analyze(draws, recentWindow, model_version)
     predictions = recommend(
@@ -160,7 +160,7 @@ async def ssq_recommendations(
     )
     comparison = (
         evaluation["modelReports"]
-        if modelVersion in {"auto", "recent_focus_v3"}
+        if modelVersion == "auto"
         else compare_models(
             draws,
             recentWindow,
@@ -405,7 +405,9 @@ def save_ssq_state(state: dict[str, Any]) -> dict[str, Any]:
 def save_ssq_recommendation_state(response: dict[str, Any]) -> dict[str, Any]:
     state = load_ssq_state()
     fingerprint = recommendation_fingerprint(response)
-    if any(item.get("recommendationFingerprint") == fingerprint for item in state.get("predictions") or []):
+    existing = [item for item in state.get("predictions") or [] if item.get("recommendationFingerprint") == fingerprint]
+    if existing:
+        response["predictions"] = existing
         return save_ssq_state(state)
     generated_at = datetime.now(timezone.utc).isoformat()
     run_id = uuid4().hex
@@ -419,6 +421,7 @@ def save_ssq_recommendation_state(response: dict[str, Any]) -> dict[str, Any]:
         for prediction in response.get("predictions") or []
     ]
     if predictions:
+        response["predictions"] = predictions
         state["predictions"].extend(predictions)
         report = build_research_backup({**response, "predictions": predictions})
         report["runId"] = run_id
@@ -1748,7 +1751,7 @@ def recommend(
     enforce_shape = model_version != UNIFORM_RANDOM_MODEL_VERSION
     candidates.extend(generate_candidates(red_scores, blue_scores, red_details, blue_details, single_count, 6, 1, rng, analysis, "单式", enforce_shape))
     candidates.extend(generate_candidates(red_scores, blue_scores, red_details, blue_details, compound_count, red_count, blue_count, rng, analysis, plan_label(red_count, blue_count), enforce_shape))
-    summary = analysis_summary(analysis)
+    summary = analysis_summary(analysis, model_version)
     return [
         {
             "targetIssue": analysis["targetIssue"],
@@ -1782,9 +1785,10 @@ def generate_candidates(
     if count <= 0:
         return []
     accepted: list[Candidate] = []
+    candidate_limit = count if count == 1 else min(400, count * 80)
     seen: set[tuple[tuple[int, ...], tuple[int, ...]]] = set()
     guard = 0
-    while len(accepted) < count and guard < 3000:
+    while len(accepted) < candidate_limit and guard < max(3000, candidate_limit * 20):
         guard += 1
         reds = sorted(weighted_sample(red_scores, red_count, rng))
         blues = sorted(weighted_sample(blue_scores, blue_count, rng))
@@ -1794,9 +1798,33 @@ def generate_candidates(
         seen.add(key)
         score = sum(red_scores[number] for number in reds) + sum(blue_scores[number] for number in blues)
         bets = math.comb(len(reds), 6) * len(blues)
-        note = f"{label}{len(reds)}+{len(blues)}；约{bets}注；最近窗口{analysis['recentWindow']}期"
-        accepted.append(Candidate(reds, blues, score, note, explain_candidate(reds, blues, analysis), build_ball_details(reds, blues, red_details, blue_details)))
-    return sorted(accepted, key=lambda item: item.score, reverse=True)[:count]
+        strategy_note = "无偏随机覆盖" if not enforce_shape else "选号风格加权"
+        note = f"{label}{len(reds)}+{len(blues)}；约{bets}注；{strategy_note}"
+        accepted.append(Candidate(reds, blues, score, note, explain_candidate(reds, blues, analysis, not enforce_shape), build_ball_details(reds, blues, red_details, blue_details)))
+    return select_diverse_candidates(accepted, count)
+
+
+def select_diverse_candidates(candidates: list[Candidate], count: int) -> list[Candidate]:
+    if count <= 0 or not candidates:
+        return []
+    remaining = list(candidates)
+    selected = [remaining.pop(0)]
+    while remaining and len(selected) < count:
+        _, candidate = min(
+            enumerate(remaining),
+            key=lambda item: (candidate_overlap_score(item[1], selected), item[0]),
+        )
+        selected.append(candidate)
+        remaining.remove(candidate)
+    return selected
+
+
+def candidate_overlap_score(candidate: Candidate, selected: list[Candidate]) -> int:
+    return sum(
+        len(set(candidate.redBalls) & set(other.redBalls)) * 3
+        + len(set(candidate.blueBalls) & set(other.blueBalls))
+        for other in selected
+    )
 
 
 def passes_shape(reds: list[int], analysis: dict[str, Any]) -> bool:
@@ -1964,7 +1992,9 @@ def stable_seed(text: str) -> int:
     return value
 
 
-def analysis_summary(analysis: dict[str, Any]) -> str:
+def analysis_summary(analysis: dict[str, Any], model_version: str = "recent_focus_v3") -> str:
+    if model_version == UNIFORM_RANDOM_MODEL_VERSION:
+        return f"样本{analysis['sampleSize']}期；当前采用无偏随机覆盖，不以冷热、遗漏或中段作为预测依据。"
     return (
         f"样本{analysis['sampleSize']}期；最近窗口{analysis['recentWindow']}期；"
         f"红球热号{' '.join(map(str, analysis['hotReds'][:6]))}；"
@@ -1973,7 +2003,12 @@ def analysis_summary(analysis: dict[str, Any]) -> str:
     )
 
 
-def explain_candidate(reds: list[int], blues: list[int], analysis: dict[str, Any]) -> list[str]:
+def explain_candidate(reds: list[int], blues: list[int], analysis: dict[str, Any], uniform_coverage: bool = False) -> list[str]:
+    if uniform_coverage:
+        return [
+            "自动策略采用无偏随机覆盖，不把冷热、遗漏或号码位置当作预测因子。",
+            f"本组红球为 {format_numbers(reds)}，蓝球为 {format_numbers(blues)}。",
+        ]
     hot_reds = sorted(set(reds) & set(analysis["hotReds"]))
     overdue_reds = sorted(set(reds) & set(analysis["overdueReds"]))
     hot_blues = sorted(set(blues) & set(analysis["hotBlues"]))
@@ -2237,6 +2272,8 @@ def aggregate_model_evaluation(version: str, reports: list[dict[str, Any]]) -> d
         "blueHitRate": round(sum(item["blueHitRate"] * item["issueCount"] for item in reports) / issue_count, 4) if issue_count else 0.0,
         "atLeastThreeRedRate": round(sum(item["atLeastThreeRedRate"] * item["issueCount"] for item in reports) / issue_count, 4) if issue_count else 0.0,
         "prizeHitRate": round(sum(item["prizeHitRate"] * item["issueCount"] for item in reports) / issue_count, 4) if issue_count else 0.0,
+        "averageBetCount": round(sum(item["averageBetCount"] * item["issueCount"] for item in reports) / issue_count, 4) if issue_count else 0.0,
+        "averageDistinctBlueCount": round(sum(item["averageDistinctBlueCount"] * item["issueCount"] for item in reports) / issue_count, 4) if issue_count else 0.0,
         "investedAmount": round(invested, 2),
         "simulatedPrizeAmount": round(prize, 2),
         "roi": round((prize - invested) / invested, 4) if invested else 0.0,
@@ -2246,23 +2283,7 @@ def aggregate_model_evaluation(version: str, reports: list[dict[str, Any]]) -> d
 
 
 def select_ssq_model(reports: list[dict[str, Any]]) -> tuple[str, str]:
-    default = next((item for item in reports if item["version"] == "recent_focus_v3"), None)
-    if not default:
-        return "recent_focus_v3", "缺少默认模型评估，保持当前默认。"
-    eligible: list[tuple[dict[str, Any], int]] = []
-    for candidate in reports:
-        if candidate["version"] in {default["version"], UNIFORM_RANDOM_MODEL_VERSION}:
-            continue
-        better_folds = sum(
-            candidate_fold["roi"] > default_fold["roi"]
-            for candidate_fold, default_fold in zip(candidate["foldReports"], default["foldReports"])
-        )
-        if better_folds >= 4 and candidate["roi"] >= default["roi"] + 0.05:
-            eligible.append((candidate, better_folds))
-    if not eligible:
-        return default["version"], "没有模型在至少 4 个时间段且总 ROI 高出 5 个百分点，保持默认。"
-    selected, better_folds = max(eligible, key=lambda item: (item[0]["roi"], item[1], item[0]["averageBestRedHits"]))
-    return selected["version"], f"在 {better_folds} 个时间段 ROI 更高，且汇总 ROI 高出默认至少 5 个百分点。"
+    return UNIFORM_RANDOM_MODEL_VERSION, "历史冷热与遗漏没有稳定的前瞻优势；自动模式使用无偏随机覆盖。"
 
 
 def load_ssq_model_evaluation() -> dict[str, Any] | None:

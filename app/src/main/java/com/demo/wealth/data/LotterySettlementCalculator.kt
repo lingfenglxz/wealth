@@ -10,6 +10,7 @@ object LotterySettlementCalculator {
     fun buildTrackedCompoundSettlement(
         draw: LotteryDraw,
         predictions: List<LotteryPrediction>,
+        runId: String = predictions.firstOrNull()?.runId.orEmpty(),
         settledAt: Long = System.currentTimeMillis()
     ): LotterySettlement? {
         val trackedPrediction = predictions
@@ -20,6 +21,7 @@ object LotterySettlementCalculator {
         val invested = detail.betCount * LOTTERY_BET_PRICE
         return LotterySettlement(
             issue = draw.issue,
+            runId = runId,
             drawDate = draw.date,
             settledAt = settledAt,
             betCount = detail.betCount,

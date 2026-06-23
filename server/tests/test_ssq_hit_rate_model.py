@@ -24,7 +24,7 @@ class SsqHitRateModelTest(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         payload = response.json()
-        self.assertEqual("recent_focus_v3", payload["modelVersion"])
+        self.assertEqual("uniform_random_v0", payload["modelVersion"])
         self.assertEqual(240, payload["recentWindow"])
         self.assertEqual(1, len(payload["predictions"]))
         self.assertEqual(6, len(payload["predictions"][0]["redBalls"]))
@@ -85,13 +85,15 @@ class SsqHitRateModelTest(unittest.TestCase):
         self.assertEqual(2, report["foldCount"])
         self.assertIn("uniform_random_v0", {item["version"] for item in report["modelReports"]})
         self.assertTrue(all(item["issueCount"] == 10 for item in report["modelReports"]))
+        self.assertTrue(all("averageBetCount" in item for item in report["modelReports"]))
+        self.assertTrue(all("averageDistinctBlueCount" in item for item in report["modelReports"]))
         self.assertIn("recommendedModelVersion", report)
 
     def test_model_evaluation_cache_reuses_same_latest_issue(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             cache_file = Path(temp_dir) / "ssq_model_evaluation.json"
             cached_report = {
-                "evaluationVersion": "ssq-evaluation-v1",
+                "evaluationVersion": "ssq-evaluation-v3",
                 "latestIssue": self.draws[0].issue,
                 "recentWindow": 60,
                 "sampleLimit": 5,
@@ -113,6 +115,29 @@ class SsqHitRateModelTest(unittest.TestCase):
         self.assertEqual(cached_report, second)
         self.assertEqual(cached_report, third)
         self.assertEqual(2, build.call_count)
+
+    def test_auto_model_selection_uses_uniform_coverage(self):
+        reports = [
+            {"version": "recent_focus_v3", "roi": -0.6, "averageBestRedHits": 1.0, "foldReports": [{"roi": -0.6}] * 6},
+            {"version": "balanced_v2", "roi": -0.1, "averageBestRedHits": 1.2, "foldReports": [{"roi": -0.1}] * 6},
+        ]
+
+        selected, reason = main.select_ssq_model(reports)
+
+        self.assertEqual("uniform_random_v0", selected)
+        self.assertIn("无偏随机覆盖", reason)
+
+    def test_diverse_candidate_selection_prefers_low_overlap(self):
+        pool = [
+            main.Candidate([1, 2, 3, 4, 5, 6], [1], 1.0, "", [], []),
+            main.Candidate([1, 2, 3, 4, 5, 7], [2], 1.0, "", [], []),
+            main.Candidate([8, 9, 10, 11, 12, 13], [3], 1.0, "", [], []),
+        ]
+
+        selected = main.select_diverse_candidates(pool, count=2)
+
+        self.assertEqual([1, 2, 3, 4, 5, 6], selected[0].redBalls)
+        self.assertEqual([8, 9, 10, 11, 12, 13], selected[1].redBalls)
 
 
 if __name__ == "__main__":

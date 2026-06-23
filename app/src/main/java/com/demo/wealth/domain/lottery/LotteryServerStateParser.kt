@@ -23,6 +23,7 @@ object LotteryServerStateParser {
                     createdAt = createdAt,
                     targetIssue = optString("targetIssue"),
                     sourceIssue = optString("sourceIssue"),
+                    runId = optString("runId", "legacy-${optString("targetIssue")}"),
                     modelVersion = optString("modelVersion", "recent_focus_v3"),
                     redBalls = optJSONArray("redBalls").toInts(),
                     blueBalls = optJSONArray("blueBalls").toInts(),
@@ -39,6 +40,7 @@ object LotteryServerStateParser {
                     createdAt = createdAt,
                     targetIssue = optString("targetIssue"),
                     sourceIssue = optString("sourceIssue"),
+                    runId = optString("runId", "legacy-${optString("targetIssue")}"),
                     modelVersion = optString("modelVersion", report.optString("modelVersion", "recent_focus_v3")),
                     reportJson = report.toString()
                 )
@@ -46,6 +48,7 @@ object LotteryServerStateParser {
             settlements = state.optJSONArray("lotterySettlements").toObjects {
                 LotterySettlement(
                     issue = optString("issue"),
+                    runId = optString("runId", "legacy-${optString("issue")}"),
                     drawDate = optString("drawDate"),
                     settledAt = optLong("settledAt", createdAt),
                     betCount = optLong("betCount"),

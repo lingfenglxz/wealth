@@ -635,10 +635,12 @@ fun ModelParameterCard(
         Text("模型版本", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-            listOf("auto" to "自动", "recent_focus_v3" to "近期", "hit_rate_v4" to "命中", "balanced_v2" to "均衡", "baseline_v1" to "基线").forEach { (value, label) ->
+            listOf("auto" to "自动", "recent_focus_v3" to "近期风格", "hit_rate_v4" to "命中风格", "balanced_v2" to "均衡风格", "baseline_v1" to "基线风格").forEach { (value, label) ->
                 ChoiceButton(label, selected = modelVersion == value) { onModelVersionChange(value) }
             }
         }
+        Spacer(Modifier.height(6.dp))
+        Text("自动使用随机覆盖；其他选项仅调整选号风格，不代表概率预测。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(10.dp))
         CountStepper("最近窗口", recentWindow, 30, 500, step = 10, onChange = onRecentWindowChange)
         Spacer(Modifier.height(8.dp))

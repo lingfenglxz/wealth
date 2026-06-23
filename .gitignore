@@ -32,6 +32,7 @@ Thumbs.db
 
 # Server-local runtime data
 server/data/ssq_state.json
+server/data/ssq_model_evaluation.json
 server/data/football_matches.json
 server/data/football_odds_snapshots.json
 server/data/football_recommendations.json

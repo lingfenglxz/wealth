@@ -75,15 +75,17 @@ class WealthRepository(context: Context) {
         val report = parseResearchReport(text)
         if (predictions.isEmpty()) throw IOException("服务端未返回推荐结果")
         dao.upsertLotteryDraws(draws)
-        dao.deletePredictionsForIssue(predictions.first().targetIssue)
+        val runId = predictions.first().runId
+        dao.deletePredictionsForRun(predictions.first().targetIssue, runId)
         dao.insertPredictions(predictions)
         report?.let {
-            dao.deleteResearchSnapshotForIssue(predictions.first().targetIssue)
+            dao.deleteResearchSnapshotForRun(predictions.first().targetIssue, runId)
             dao.insertResearchSnapshot(
                 LotteryResearchSnapshot(
                     createdAt = predictions.first().createdAt,
                     targetIssue = predictions.first().targetIssue,
                     sourceIssue = predictions.first().sourceIssue,
+                    runId = runId,
                     modelVersion = it.modelVersion,
                     reportJson = it.toJsonObject().toString()
                 )
@@ -316,8 +318,9 @@ class WealthRepository(context: Context) {
             LotteryPrediction(
                 createdAt = createdAt,
                 targetIssue = item.optString("targetIssue"),
-                sourceIssue = item.optString("sourceIssue"),
-                modelVersion = item.optString("modelVersion", "recent_focus_v3"),
+                    sourceIssue = item.optString("sourceIssue"),
+                    runId = item.optString("runId", "legacy-${item.optString("targetIssue")}"),
+                    modelVersion = item.optString("modelVersion", "recent_focus_v3"),
                 redBalls = reds,
                 blueBalls = blues,
                 score = item.optDouble("score"),
@@ -339,12 +342,12 @@ class WealthRepository(context: Context) {
         val backtest = root.optJSONObject("backtest")?.let {
             LotteryBacktestReport(
                 issueCount = it.optInt("issueCount"),
-                averageBestRedHits = it.optDouble("averageBestRedHits"),
-                blueHitRate = it.optDouble("blueHitRate"),
-                atLeastThreeRedRate = it.optDouble("atLeastThreeRedRate"),
-                prizeHitRate = it.optDouble("prizeHitRate"),
-                averageBetCount = it.optDouble("averageBetCount"),
-                averageDistinctBlueCount = it.optDouble("averageDistinctBlueCount")
+                averageBestRedHits = it.optFiniteDouble("averageBestRedHits"),
+                blueHitRate = it.optFiniteDouble("blueHitRate"),
+                atLeastThreeRedRate = it.optFiniteDouble("atLeastThreeRedRate"),
+                prizeHitRate = it.optFiniteDouble("prizeHitRate"),
+                averageBetCount = it.optFiniteDouble("averageBetCount"),
+                averageDistinctBlueCount = it.optFiniteDouble("averageDistinctBlueCount")
             )
         }
         val comparison = root.optJSONArray("modelComparison").toObjects {
@@ -353,9 +356,9 @@ class WealthRepository(context: Context) {
                 averageBestRedHits = getDouble("averageBestRedHits"),
                 blueHitRate = getDouble("blueHitRate"),
                 atLeastThreeRedRate = getDouble("atLeastThreeRedRate"),
-                prizeHitRate = optDouble("prizeHitRate"),
-                averageBetCount = optDouble("averageBetCount"),
-                averageDistinctBlueCount = optDouble("averageDistinctBlueCount")
+                prizeHitRate = optFiniteDouble("prizeHitRate"),
+                averageBetCount = optFiniteDouble("averageBetCount"),
+                averageDistinctBlueCount = optFiniteDouble("averageDistinctBlueCount")
             )
         }
         val budgetPlan = root.optJSONObject("budgetPlan")?.let {
@@ -460,12 +463,13 @@ class WealthRepository(context: Context) {
 
     private suspend fun settleResolvedPredictions() {
         val drawsByIssue = dao.getLotteryDraws().associateBy { it.issue }
-        val predictionsByIssue = dao.getAllPredictions().groupBy { it.targetIssue }
-        predictionsByIssue.forEach { (issue, predictions) ->
+        val predictionsByRun = dao.getAllPredictions().groupBy { it.targetIssue to it.runId }
+        predictionsByRun.forEach { (key, predictions) ->
+            val (issue, runId) = key
             val draw = drawsByIssue[issue] ?: return@forEach
-            val settlement = LotterySettlementCalculator.buildTrackedCompoundSettlement(draw, predictions)
+            val settlement = LotterySettlementCalculator.buildTrackedCompoundSettlement(draw, predictions, runId = runId)
             if (settlement == null) {
-                dao.deleteSettlementForIssue(issue)
+                dao.deleteSettlementForRun(issue, runId)
             } else {
                 dao.upsertLotterySettlements(listOf(settlement))
             }
@@ -483,6 +487,7 @@ class WealthRepository(context: Context) {
         }
         return LotterySettlement(
             issue = draw.issue,
+            runId = predictions.firstOrNull()?.runId.orEmpty(),
             drawDate = draw.date,
             settledAt = System.currentTimeMillis(),
             betCount = totalBetCount,

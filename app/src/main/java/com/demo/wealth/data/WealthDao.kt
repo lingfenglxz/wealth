@@ -35,6 +35,9 @@ interface WealthDao {
     @Query("DELETE FROM LotteryPrediction WHERE targetIssue = :targetIssue")
     suspend fun deletePredictionsForIssue(targetIssue: String)
 
+    @Query("DELETE FROM LotteryPrediction WHERE targetIssue = :targetIssue AND runId = :runId")
+    suspend fun deletePredictionsForRun(targetIssue: String, runId: String)
+
     @Query("SELECT * FROM LotteryResearchSnapshot ORDER BY createdAt DESC LIMIT 1")
     fun observeLatestResearchSnapshot(): Flow<LotteryResearchSnapshot?>
 
@@ -50,6 +53,9 @@ interface WealthDao {
     @Query("DELETE FROM LotteryResearchSnapshot WHERE targetIssue = :targetIssue")
     suspend fun deleteResearchSnapshotForIssue(targetIssue: String)
 
+    @Query("DELETE FROM LotteryResearchSnapshot WHERE targetIssue = :targetIssue AND runId = :runId")
+    suspend fun deleteResearchSnapshotForRun(targetIssue: String, runId: String)
+
     @Query("SELECT * FROM LotterySettlement ORDER BY issue DESC")
     fun observeLotterySettlements(): Flow<List<LotterySettlement>>
 
@@ -61,6 +67,9 @@ interface WealthDao {
 
     @Query("DELETE FROM LotterySettlement WHERE issue = :issue")
     suspend fun deleteSettlementForIssue(issue: String)
+
+    @Query("DELETE FROM LotterySettlement WHERE issue = :issue AND runId = :runId")
+    suspend fun deleteSettlementForRun(issue: String, runId: String)
 
     @Query("SELECT * FROM FootballMatchEntity ORDER BY kickoffTime")
     fun observeFootballMatches(): Flow<List<FootballMatchEntity>>

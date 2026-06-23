@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         FootballMatchEntity::class,
         FootballRecommendationEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -150,6 +150,17 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `FootballRecommendationEntity` ADD COLUMN `awayExpectedGoals` REAL NOT NULL DEFAULT 0.0")
             }
         }
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `LotteryPrediction` ADD COLUMN `runId` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `LotteryResearchSnapshot` ADD COLUMN `runId` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `LotterySettlement` ADD COLUMN `runId` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("DROP INDEX IF EXISTS `index_LotteryResearchSnapshot_targetIssue`")
+                db.execSQL("DROP INDEX IF EXISTS `index_LotterySettlement_issue`")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_LotteryResearchSnapshot_targetIssue_runId` ON `LotteryResearchSnapshot` (`targetIssue`, `runId`)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_LotterySettlement_issue_runId` ON `LotterySettlement` (`issue`, `runId`)")
+            }
+        }
 
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
@@ -157,7 +168,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "wealth-lab.db"
-                ).addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                ).addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { instance = it }

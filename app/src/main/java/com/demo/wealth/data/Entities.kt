@@ -20,6 +20,7 @@ data class LotteryPrediction(
     val createdAt: Long,
     val targetIssue: String,
     val sourceIssue: String,
+    val runId: String = "",
     val modelVersion: String = "local_legacy",
     val redBalls: List<Int>,
     val blueBalls: List<Int>,
@@ -30,20 +31,22 @@ data class LotteryPrediction(
     val note: String
 )
 
-@Entity(indices = [Index(value = ["targetIssue"], unique = true)])
+@Entity(indices = [Index(value = ["targetIssue", "runId"], unique = true)])
 data class LotteryResearchSnapshot(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val createdAt: Long,
     val targetIssue: String,
     val sourceIssue: String,
+    val runId: String = "",
     val modelVersion: String,
     val reportJson: String
 )
 
-@Entity(indices = [Index(value = ["issue"], unique = true)])
+@Entity(indices = [Index(value = ["issue", "runId"], unique = true)])
 data class LotterySettlement(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val issue: String,
+    val runId: String = "",
     val drawDate: String,
     val settledAt: Long,
     val betCount: Long,

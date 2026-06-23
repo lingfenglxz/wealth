@@ -36,10 +36,27 @@ class SsqStateBackupTest(unittest.TestCase):
                 response = TestClient(main.app).get("/api/lottery/ssq/recommendations?modelVersion=auto&limit=80")
 
         self.assertEqual(200, response.status_code)
-        self.assertEqual("balanced_v2", response.json()["modelVersion"])
+        self.assertEqual("uniform_random_v0", response.json()["modelVersion"])
         self.assertEqual(evaluation, response.json()["modelEvaluation"])
         self.assertEqual(evaluation["modelReports"], response.json()["modelComparison"])
         ensure.assert_called_once()
+
+    def test_recent_style_request_is_not_rewritten_as_auto(self):
+        draws = main.load_cache()[:80]
+        evaluation = {
+            "latestIssue": draws[0].issue,
+            "recommendedModelVersion": "uniform_random_v0",
+            "modelReports": [{"version": "uniform_random_v0", "roi": -0.5}],
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state_file = Path(temp_dir) / "ssq_state.json"
+            with patch.object(main, "SSQ_STATE_FILE", state_file), \
+                    patch.object(main, "get_draws", AsyncMock(return_value=draws)), \
+                    patch.object(main, "ensure_ssq_model_evaluation", return_value=evaluation):
+                response = TestClient(main.app).get("/api/lottery/ssq/recommendations?modelVersion=recent_focus_v3&limit=80")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("recent_focus_v3", response.json()["modelVersion"])
 
     def test_draws_response_includes_saved_prediction_state(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -108,6 +125,7 @@ class SsqStateBackupTest(unittest.TestCase):
             state = json.loads(state_file.read_text(encoding="utf-8"))
 
         self.assertEqual(2, len(state["predictions"]))
+        self.assertIn("runId", response["predictions"][0])
         self.assertEqual(2, len({item["runId"] for item in state["predictions"]}))
         self.assertEqual(2, len(state["researchReports"]))
         self.assertEqual(2, len(state["lotterySettlements"]))
