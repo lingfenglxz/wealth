@@ -14,7 +14,7 @@ from typing import Any
 from uuid import uuid4
 
 import httpx
-from fastapi import Body, FastAPI, Query
+from fastapi import BackgroundTasks, Body, FastAPI, Query
 
 
 app = FastAPI(title="WealthLab Light Server", version="0.2.0")
@@ -103,12 +103,15 @@ def health() -> dict[str, str]:
 
 @app.get("/api/lottery/ssq/draws")
 async def ssq_draws(
+    background_tasks: BackgroundTasks,
     limit: int = Query(default=3000, ge=1, le=5000),
     refresh: bool = Query(default=False),
 ) -> dict[str, Any]:
     draws = await get_draws(limit, refresh)
     state = refresh_ssq_state_settlements(draws)
-    evaluation = ensure_ssq_model_evaluation(draws) if refresh and len(draws) >= 30 else None
+    evaluation = load_ssq_model_evaluation()
+    if refresh and len(draws) >= 30:
+        background_tasks.add_task(ensure_ssq_model_evaluation, draws)
     return {
         "source": "cwl",
         "count": len(draws),
@@ -140,36 +143,33 @@ async def ssq_recommendations(
             "analysis": analyze(draws, recentWindow, modelVersion),
             "predictions": [],
         }
-    evaluation = ensure_ssq_model_evaluation(
-        draws,
-        recent_window=recentWindow,
-    )
-    model_version = UNIFORM_RANDOM_MODEL_VERSION if modelVersion == "auto" else modelVersion
-    if model_version not in {*MODEL_CONFIGS, UNIFORM_RANDOM_MODEL_VERSION}:
-        model_version = "recent_focus_v3"
-    analysis = analyze(draws, recentWindow, model_version)
-    predictions = recommend(
-        draws=draws,
-        single_count=singleCount,
-        compound_count=compoundCount,
-        red_count=redCount,
-        blue_count=blueCount,
-        analysis=analysis,
-        model_version=model_version,
-        recent_window=recentWindow,
-    )
-    comparison = (
-        evaluation["modelReports"]
-        if modelVersion == "auto"
-        else compare_models(
+    evaluation = load_ssq_model_evaluation()
+    if modelVersion == "auto":
+        model_version, analysis, predictions = recommend_auto(
             draws,
+            singleCount,
+            compoundCount,
+            redCount,
+            blueCount,
             recentWindow,
-            single_count=singleCount,
-            compound_count=compoundCount,
-            red_count=redCount,
-            blue_count=blueCount,
         )
-    )
+        comparison = (evaluation or {}).get("modelReports", [])
+    else:
+        model_version = modelVersion if modelVersion in MODEL_CONFIGS else "recent_focus_v3"
+        analysis = analyze(draws, recentWindow, model_version)
+        predictions = recommend(
+            draws,
+            singleCount,
+            compoundCount,
+            redCount,
+            blueCount,
+            analysis,
+            model_version,
+            recentWindow,
+        )
+        comparison = compare_models(
+            draws, recentWindow, single_count=singleCount, compound_count=compoundCount, red_count=redCount, blue_count=blueCount
+        )
     selected_backtest = next((item for item in comparison if item["version"] == model_version), None)
     number_rankings = build_number_rankings(draws, model_version, recentWindow)
     response = {
@@ -389,17 +389,48 @@ def load_ssq_state() -> dict[str, Any]:
         value = data.get(key)
         if isinstance(value, list):
             state[key] = value
-    return state
+    return deduplicate_ssq_state(state)
 
 
 def save_ssq_state(state: dict[str, Any]) -> dict[str, Any]:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    state = deduplicate_ssq_state(state)
     normalized = empty_ssq_state()
     normalized["predictions"] = list(state.get("predictions") or [])[-500:]
     normalized["researchReports"] = list(state.get("researchReports") or [])[-200:]
     normalized["lotterySettlements"] = list(state.get("lotterySettlements") or [])[-500:]
     SSQ_STATE_FILE.write_text(json.dumps(normalized, ensure_ascii=False, indent=2), encoding="utf-8")
     return normalized
+
+
+def deduplicate_ssq_state(state: dict[str, Any]) -> dict[str, Any]:
+    predictions_by_run: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for prediction in state.get("predictions") or []:
+        issue = str(prediction.get("targetIssue") or "")
+        if issue:
+            run_id = str(prediction.get("runId") or f"legacy-{issue}")
+            predictions_by_run.setdefault((issue, run_id), []).append(prediction)
+    kept_runs: dict[str, tuple[str, str]] = {}
+    for run_key, predictions in predictions_by_run.items():
+        fingerprint = recommendation_fingerprint({"predictions": predictions})
+        previous = kept_runs.get(fingerprint)
+        generated_at = min(str(item.get("generatedAt") or "") for item in predictions)
+        if previous is None or generated_at < min(str(item.get("generatedAt") or "") for item in predictions_by_run[previous]):
+            kept_runs[fingerprint] = run_key
+    active_runs = set(kept_runs.values())
+    state["predictions"] = [
+        item for item in state.get("predictions") or []
+        if (str(item.get("targetIssue") or ""), str(item.get("runId") or f"legacy-{item.get('targetIssue') or ''}")) in active_runs
+    ]
+    state["researchReports"] = [
+        item for item in state.get("researchReports") or []
+        if (str(item.get("targetIssue") or ""), str(item.get("runId") or f"legacy-{item.get('targetIssue') or ''}")) in active_runs
+    ]
+    state["lotterySettlements"] = [
+        item for item in state.get("lotterySettlements") or []
+        if (str(item.get("issue") or ""), str(item.get("runId") or f"legacy-{item.get('issue') or ''}")) in active_runs
+    ]
+    return state
 
 
 def save_ssq_recommendation_state(response: dict[str, Any]) -> dict[str, Any]:
@@ -445,9 +476,6 @@ def recommendation_fingerprint(response: dict[str, Any]) -> str:
         for item in response.get("predictions") or []
     ]
     payload = {
-        "modelVersion": response.get("modelVersion", ""),
-        "recentWindow": response.get("recentWindow", 0),
-        "requestPlan": response.get("requestPlan") or {},
         "predictions": predictions,
     }
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -456,7 +484,7 @@ def recommendation_fingerprint(response: dict[str, Any]) -> str:
 
 def refresh_ssq_state_settlements(draws: list[SsqDraw]) -> dict[str, Any]:
     state = settle_state_predictions(load_ssq_state(), draws)
-    return save_ssq_state(state) if state != load_ssq_state() else state
+    return save_ssq_state(state)
 
 
 def build_research_backup(response: dict[str, Any]) -> dict[str, Any]:
@@ -487,11 +515,7 @@ def settle_state_predictions(state: dict[str, Any], draws: list[SsqDraw]) -> dic
         if issue:
             run_id = str(prediction.get("runId") or f"legacy-{issue}")
             predictions_by_run.setdefault((issue, run_id), []).append(prediction)
-    settlements = {
-        (str(item.get("issue") or ""), str(item.get("runId") or f"legacy-{item.get('issue') or ''}")): item
-        for item in state.get("lotterySettlements") or []
-        if item.get("issue")
-    }
+    settlements: dict[tuple[str, str], dict[str, Any]] = {}
     for (issue, run_id), predictions in predictions_by_run.items():
         draw = draws_by_issue.get(issue)
         if not draw:
@@ -1767,6 +1791,35 @@ def recommend(
         }
         for candidate in candidates
     ]
+
+
+def recommend_auto(
+    draws: list[SsqDraw],
+    single_count: int,
+    compound_count: int,
+    red_count: int,
+    blue_count: int,
+    recent_window: int,
+) -> tuple[str, dict[str, Any], list[dict[str, Any]]]:
+    options: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    for model_version in MODEL_CONFIGS:
+        analysis = analyze(draws, recent_window, model_version)
+        predictions = recommend(
+            draws,
+            single_count,
+            compound_count,
+            red_count,
+            blue_count,
+            analysis,
+            model_version,
+            recent_window,
+        )
+        if predictions:
+            options.append((analysis, max(predictions, key=lambda item: item["score"])))
+    if not options:
+        return "recent_focus_v3", analyze(draws, recent_window), []
+    analysis, prediction = max(options, key=lambda item: item[1]["score"])
+    return prediction["modelVersion"], analysis, [prediction]
 
 
 def generate_candidates(

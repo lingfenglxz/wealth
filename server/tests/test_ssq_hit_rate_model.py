@@ -24,7 +24,7 @@ class SsqHitRateModelTest(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         payload = response.json()
-        self.assertEqual("uniform_random_v0", payload["modelVersion"])
+        self.assertIn(payload["modelVersion"], main.MODEL_CONFIGS)
         self.assertEqual(240, payload["recentWindow"])
         self.assertEqual(1, len(payload["predictions"]))
         self.assertEqual(6, len(payload["predictions"][0]["redBalls"]))

@@ -464,7 +464,14 @@ class WealthRepository(context: Context) {
     private suspend fun settleResolvedPredictions() {
         val drawsByIssue = dao.getLotteryDraws().associateBy { it.issue }
         val predictionsByRun = dao.getAllPredictions().groupBy { it.targetIssue to it.runId }
-        predictionsByRun.forEach { (key, predictions) ->
+        val uniqueRuns = predictionsByRun.entries.groupBy { (_, predictions) -> trackedRecommendationKey(predictions) }.values.map { runs ->
+            runs.minBy { (_, predictions) -> predictions.minOf { it.createdAt } }
+        }
+        val keptRunKeys = uniqueRuns.map { it.key }.toSet()
+        predictionsByRun.keys.filterNot { it in keptRunKeys }.forEach { (issue, runId) ->
+            dao.deleteSettlementForRun(issue, runId)
+        }
+        uniqueRuns.forEach { (key, predictions) ->
             val (issue, runId) = key
             val draw = drawsByIssue[issue] ?: return@forEach
             val settlement = LotterySettlementCalculator.buildTrackedCompoundSettlement(draw, predictions, runId = runId)
@@ -475,6 +482,13 @@ class WealthRepository(context: Context) {
             }
         }
     }
+
+    private fun trackedRecommendationKey(predictions: List<LotteryPrediction>): String = predictions
+        .map { prediction ->
+            "${prediction.targetIssue}:${prediction.modelVersion}:${prediction.redBalls.sorted().joinToString(",")}:${prediction.blueBalls.sorted().joinToString(",")}"
+        }
+        .sorted()
+        .joinToString("|")
 
     private fun buildSettlement(draw: LotteryDraw, predictions: List<LotteryPrediction>): LotterySettlement {
         val details = predictions.map { settlePrediction(it, draw) }

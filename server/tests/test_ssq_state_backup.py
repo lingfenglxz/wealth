@@ -1,3 +1,4 @@
+import asyncio
 import json
 import tempfile
 import unittest
@@ -5,41 +6,47 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
+from fastapi import BackgroundTasks
 
 import main
 
 
 class SsqStateBackupTest(unittest.TestCase):
-    def test_manual_draw_refresh_builds_model_evaluation(self):
+    def test_manual_draw_refresh_schedules_model_evaluation_in_background(self):
         draws = main.load_cache()[:40]
         evaluation = {"latestIssue": draws[0].issue, "recommendedModelVersion": "recent_focus_v3"}
+        background_tasks = BackgroundTasks()
         with patch.object(main, "get_draws", AsyncMock(return_value=draws)), \
-                patch.object(main, "ensure_ssq_model_evaluation", return_value=evaluation) as ensure:
-            response = TestClient(main.app).get("/api/lottery/ssq/draws?limit=40&refresh=true")
+                patch.object(main, "load_ssq_model_evaluation", return_value=evaluation):
+            response = asyncio.run(main.ssq_draws(limit=40, refresh=True, background_tasks=background_tasks))
 
-        self.assertEqual(200, response.status_code)
-        self.assertEqual(evaluation, response.json()["modelEvaluation"])
-        ensure.assert_called_once()
+        self.assertEqual(evaluation, response["modelEvaluation"])
+        self.assertEqual(1, len(background_tasks.tasks))
 
-    def test_auto_recommendation_uses_cached_recommended_model(self):
+    def test_auto_recommendation_uses_highest_scored_style_group(self):
         draws = main.load_cache()[:80]
         evaluation = {
             "latestIssue": draws[0].issue,
-            "recommendedModelVersion": "balanced_v2",
-            "modelReports": [{"version": "balanced_v2", "roi": -0.5}],
+            "recommendedModelVersion": "uniform_random_v0",
+            "modelReports": [],
         }
+        candidates = []
+        for version in main.MODEL_CONFIGS:
+            analysis = main.analyze(draws, 240, version)
+            candidates.extend(main.recommend(draws, 0, 1, 6, 3, analysis, version, 240))
+        expected = max(candidates, key=lambda item: item["score"])
         with tempfile.TemporaryDirectory() as temp_dir:
             state_file = Path(temp_dir) / "ssq_state.json"
             with patch.object(main, "SSQ_STATE_FILE", state_file), \
                     patch.object(main, "get_draws", AsyncMock(return_value=draws)), \
-                    patch.object(main, "ensure_ssq_model_evaluation", return_value=evaluation) as ensure:
+                    patch.object(main, "load_ssq_model_evaluation", return_value=evaluation):
                 response = TestClient(main.app).get("/api/lottery/ssq/recommendations?modelVersion=auto&limit=80")
 
         self.assertEqual(200, response.status_code)
-        self.assertEqual("uniform_random_v0", response.json()["modelVersion"])
+        self.assertEqual(expected["modelVersion"], response.json()["modelVersion"])
+        self.assertEqual(expected["score"], response.json()["predictions"][0]["score"])
         self.assertEqual(evaluation, response.json()["modelEvaluation"])
         self.assertEqual(evaluation["modelReports"], response.json()["modelComparison"])
-        ensure.assert_called_once()
 
     def test_recent_style_request_is_not_rewritten_as_auto(self):
         draws = main.load_cache()[:80]
@@ -80,7 +87,7 @@ class SsqStateBackupTest(unittest.TestCase):
         backup = response.json()["stateBackup"]
         self.assertEqual("2026063", backup["predictions"][0]["targetIssue"])
         self.assertEqual("balanced_v2", backup["researchReports"][0]["modelVersion"])
-        self.assertIn("2026062", {item["issue"] for item in backup["lotterySettlements"]})
+        self.assertNotIn("2026062", {item["issue"] for item in backup["lotterySettlements"]})
 
     def test_recommendations_are_saved_to_server_state(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -130,6 +137,30 @@ class SsqStateBackupTest(unittest.TestCase):
         self.assertEqual(2, len(state["researchReports"]))
         self.assertEqual(2, len(state["lotterySettlements"]))
         self.assertEqual(2, len({item["runId"] for item in state["lotterySettlements"]}))
+
+    def test_legacy_duplicate_runs_with_same_numbers_are_counted_once(self):
+        draw = main.load_cache()[0]
+        duplicate_predictions = [
+            {
+                "targetIssue": draw.issue,
+                "sourceIssue": "previous",
+                "runId": run_id,
+                "generatedAt": generated_at,
+                "modelVersion": "recent_focus_v3",
+                "redBalls": [1, 2, 3, 4, 5, 6],
+                "blueBalls": [7, 8, 9],
+            }
+            for run_id, generated_at in [("first", "2026-06-20T01:00:00+00:00"), ("second", "2026-06-20T02:00:00+00:00")]
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state_file = Path(temp_dir) / "ssq_state.json"
+            state_file.write_text(json.dumps({"predictions": duplicate_predictions, "researchReports": [], "lotterySettlements": []}), encoding="utf-8")
+            with patch.object(main, "SSQ_STATE_FILE", state_file):
+                state = main.refresh_ssq_state_settlements([draw])
+
+        self.assertEqual(1, len(state["predictions"]))
+        self.assertEqual("first", state["predictions"][0]["runId"])
+        self.assertEqual(1, len(state["lotterySettlements"]))
 
 
 if __name__ == "__main__":

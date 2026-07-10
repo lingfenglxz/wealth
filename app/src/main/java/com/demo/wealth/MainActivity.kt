@@ -640,7 +640,7 @@ fun ModelParameterCard(
             }
         }
         Spacer(Modifier.height(6.dp))
-        Text("自动使用随机覆盖；其他选项仅调整选号风格，不代表概率预测。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
+        Text("自动会比较各选号风格的最高分组合，并使用其中得分最高的一组；手动模式可固定使用指定风格。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(10.dp))
         CountStepper("最近窗口", recentWindow, 30, 500, step = 10, onChange = onRecentWindowChange)
         Spacer(Modifier.height(8.dp))
@@ -994,9 +994,11 @@ fun NumberRankingCard(report: LotteryResearchReport, predictions: List<LotteryPr
 
 @Composable
 fun SettlementOverviewCard(settlements: List<LotterySettlement>) {
-    val totals = remember(settlements) {
-        val totalInvested = settlements.sumOf { it.investedAmount }
-        val totalPrize = settlements.sumOf { it.simulatedPrizeAmount }
+    val settlementIssues = remember(settlements) { groupSettlementsByIssue(settlements) }
+    val uniqueSettlements = remember(settlementIssues) { settlementIssues.flatten() }
+    val totals = remember(uniqueSettlements) {
+        val totalInvested = uniqueSettlements.sumOf { it.investedAmount }
+        val totalPrize = uniqueSettlements.sumOf { it.simulatedPrizeAmount }
         Triple(totalInvested, totalPrize, if (totalInvested == 0.0) 0.0 else (totalPrize - totalInvested) / totalInvested)
     }
     val totalInvested = totals.first
@@ -1009,7 +1011,7 @@ fun SettlementOverviewCard(settlements: List<LotterySettlement>) {
         Spacer(Modifier.height(4.dp))
         Text("仅按每期实际复式方案结算投入；奖金按三至六等奖及福运奖固定金额估算，一二等奖浮动奖金暂不计入。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(8.dp))
-        MetricRow("已结算期数", settlements.size.toString(), "累计 ROI", percent(totalRoi))
+        MetricRow("已结算期数", settlementIssues.size.toString(), "累计 ROI", percent(totalRoi))
         Spacer(Modifier.height(8.dp))
         MetricRow("累计投入", money(totalInvested), "奖金", money(totalPrize))
         Spacer(Modifier.height(10.dp))
@@ -1021,9 +1023,9 @@ fun SettlementOverviewCard(settlements: List<LotterySettlement>) {
             if (settlements.isEmpty()) {
                 Text("还没有可结算的真实推荐。", color = Color(0xFF61706C), style = MaterialTheme.typography.bodySmall)
             } else {
-                settlements.forEachIndexed { index, settlement ->
-                    SettlementIssueRow(settlement)
-                    if (index < settlements.lastIndex) {
+                settlementIssues.forEachIndexed { index, issueSettlements ->
+                    SettlementIssueRow(issueSettlements)
+                    if (index < settlementIssues.lastIndex) {
                         Spacer(Modifier.height(8.dp))
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                         Spacer(Modifier.height(8.dp))
@@ -1035,9 +1037,12 @@ fun SettlementOverviewCard(settlements: List<LotterySettlement>) {
 }
 
 @Composable
-fun SettlementIssueRow(settlement: LotterySettlement) {
-    var expanded by remember(settlement.issue) { mutableStateOf(false) }
-    val details = remember(settlement.detailJson) { parseSettlementDetails(settlement.detailJson) }
+fun SettlementIssueRow(settlements: List<LotterySettlement>) {
+    val issue = settlements.firstOrNull()?.issue.orEmpty()
+    val totalInvested = settlements.sumOf { it.investedAmount }
+    val totalPrize = settlements.sumOf { it.simulatedPrizeAmount }
+    val totalRoi = if (totalInvested == 0.0) 0.0 else (totalPrize - totalInvested) / totalInvested
+    var expanded by remember(issue) { mutableStateOf(false) }
     Column {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1045,9 +1050,9 @@ fun SettlementIssueRow(settlement: LotterySettlement) {
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("第 ${settlement.issue} 期", fontWeight = FontWeight.SemiBold)
+                Text("第 $issue 期", fontWeight = FontWeight.SemiBold)
                 Text(
-                    "${money(settlement.investedAmount)} 投入 · ${money(settlement.simulatedPrizeAmount)} 奖金 · ROI ${percent(settlement.roi)}",
+                    "${settlements.size} 次推荐 · ${money(totalInvested)} 投入 · ${money(totalPrize)} 奖金 · ROI ${percent(totalRoi)}",
                     color = Color(0xFF61706C),
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -1057,28 +1062,38 @@ fun SettlementIssueRow(settlement: LotterySettlement) {
             }
         }
         if (expanded) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "最佳红球 ${settlement.bestRedHits} 个 · 蓝球${if (settlement.blueHit) "命中" else "未中"} · 共 ${settlement.betCount} 注",
-                color = Color(0xFF61706C),
-                style = MaterialTheme.typography.bodySmall
-            )
-            details.forEach { detail ->
+            settlements.forEachIndexed { index, settlement ->
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "${detail.label} ${detail.redBalls.joinToString(" ")} + ${detail.blueBalls.joinToString(" ")}",
+                    if (settlements.size > 1) "第 ${index + 1} 次推荐" else "本次推荐",
                     fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.bodySmall
                 )
                 Text(
-                    "${detail.betCount} 注 · 最佳红球 ${detail.bestRedHits} · 蓝球${if (detail.blueHit) "命中" else "未中"} · 奖金 ${money(detail.prizeAmount)}",
+                    "${money(settlement.investedAmount)} 投入 · ${money(settlement.simulatedPrizeAmount)} 奖金 · 最佳红球 ${settlement.bestRedHits} 个 · 蓝球${if (settlement.blueHit) "命中" else "未中"} · 共 ${settlement.betCount} 注",
                     color = Color(0xFF61706C),
                     style = MaterialTheme.typography.bodySmall
                 )
+                parseSettlementDetails(settlement.detailJson).forEach { detail ->
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "${detail.label} ${detail.redBalls.joinToString(" ")} + ${detail.blueBalls.joinToString(" ")}",
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "${detail.betCount} 注 · 最佳红球 ${detail.bestRedHits} · 蓝球${if (detail.blueHit) "命中" else "未中"} · 奖金 ${money(detail.prizeAmount)}",
+                        color = Color(0xFF61706C),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         }
     }
 }
+
+fun groupSettlementsByIssue(settlements: List<LotterySettlement>): List<List<LotterySettlement>> =
+    settlements.distinctBy { it.issue to it.detailJson }.groupBy { it.issue }.values.toList()
 
 @Composable
 fun LotteryTrendCard(draws: List<LotteryDraw>) {
