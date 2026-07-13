@@ -1,6 +1,7 @@
 package com.demo.wealth
 
 import com.demo.wealth.data.LotterySettlement
+import com.demo.wealth.ui.groupSettlementsByIssue
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

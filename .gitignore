@@ -42,3 +42,8 @@ server/data/football_team_ratings.json
 server/data/football_match_facts.json
 server/data/worldcup_2026_schedule.json
 server/data/imports/
+
+# Design preview screenshots (temporary)
+*.png
+.playwright-mcp/
+.zcode/
