@@ -9,6 +9,7 @@ app/build/
 
 # Local machine config
 local.properties
+/AGENTS.md
 
 # Python
 server/.venv/
