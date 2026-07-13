@@ -10,7 +10,7 @@ app/build/
 # Local machine config
 local.properties
 /AGENTS.md
-
+/CLAUDE.md
 # Python
 server/.venv/
 **/__pycache__/
