@@ -1,43 +1,11 @@
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
+# Repository Instructions
 
-This project is indexed by GitNexus as **wealth** (779 symbols, 1419 relationships, 66 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+- Work from the `master` branch by default.
+- Commit changes after modifying code.
+- During design and development, when a missing local runtime, command-line tool, SDK, package manager, or dependency blocks the task, restore the required environment as part of the work using official or project-declared sources. Ask before elevation, system-wide or PATH/registry changes, interactive sign-in or license acceptance, non-official sources, paid services, or destructive/conflicting upgrades or removals.
 
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+## UI Page Change Verification Rules
 
-## Always Do
+**ALL frontend page layout, style, and interaction changes MUST be verified with Playwright in a real browser before committing.** Do not rely solely on unit tests passing.
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
-
-## Never Do
-
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
-
-## Resources
-
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/wealth/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/wealth/clusters` | All functional areas |
-| `gitnexus://repo/wealth/processes` | All execution flows |
-| `gitnexus://repo/wealth/process/{name}` | Step-by-step execution trace |
-
-## CLI
-
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-
-<!-- gitnexus:end -->
+**Only commit when**: build is clean + all tests pass + Playwright verification passes. Never commit UI changes without seeing the visual result.
