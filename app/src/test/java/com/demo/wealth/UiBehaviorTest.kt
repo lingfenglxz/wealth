@@ -1,6 +1,7 @@
 package com.demo.wealth
 
 import com.demo.wealth.data.FootballRecommendationEntity
+import com.demo.wealth.data.buildSsqRecommendationPath
 import com.demo.wealth.ui.components.ConnectionStatus
 import com.demo.wealth.ui.components.connectionStatus
 import com.demo.wealth.ui.latestRecommendationRun
@@ -54,6 +55,14 @@ class UiBehaviorTest {
         assertEquals("2026-07-19", expectedSsqDrawDate("2026-07-16"))
         assertEquals("2027-01-03", expectedSsqDrawDate("2026-12-31"))
         assertNull(expectedSsqDrawDate("not-a-date"))
+    }
+
+    @Test
+    fun ssqRecommendationRequestOnlySendsCombinationInputs() {
+        assertEquals(
+            "/api/lottery/ssq/recommendations?compoundCount=2&redCount=7&blueCount=4",
+            buildSsqRecommendationPath(compoundCount = 2, compoundRedCount = 7, compoundBlueCount = 4)
+        )
     }
 
     private fun recommendation(createdAt: Long, playType: String) = FootballRecommendationEntity(

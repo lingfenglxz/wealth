@@ -2,7 +2,6 @@ package com.demo.wealth.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -18,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PlayArrow
@@ -63,7 +61,6 @@ import com.demo.wealth.ui.components.OmissionChart
 import com.demo.wealth.ui.components.Panel
 import com.demo.wealth.ui.components.SectionHeader
 import com.demo.wealth.ui.frequentNumbers
-import com.demo.wealth.ui.groupSettlementsByIssue
 import com.demo.wealth.ui.expectedSsqDrawDate
 import com.demo.wealth.ui.money
 import com.demo.wealth.ui.nextIssueLabel
@@ -74,6 +71,7 @@ import com.demo.wealth.ui.parseSettlementDetails
 import com.demo.wealth.ui.parseStringArray
 import com.demo.wealth.ui.percent
 import com.demo.wealth.ui.signedPercent
+import com.demo.wealth.ui.summarizeSettlements
 import com.demo.wealth.ui.theme.ErrorContainer
 import com.demo.wealth.ui.theme.InfoContainer
 import com.demo.wealth.ui.theme.OnErrorContainer
@@ -112,6 +110,8 @@ fun LotteryScreen(
     modifier: Modifier = Modifier
 ) {
     var visibleDrawCount by rememberSaveable { mutableIntStateOf(20) }
+    val visibleDraws = remember(draws, visibleDrawCount) { draws.take(visibleDrawCount) }
+    val drawDatesByIssue = remember(draws) { draws.associate { it.issue to it.date } }
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(SpacingLg),
         verticalArrangement = Arrangement.spacedBy(SpacingMd)
@@ -136,7 +136,7 @@ fun LotteryScreen(
 
         // 推荐结果
         items(predictions, key = { it.id }) { prediction ->
-            PredictionCard(prediction, draws.firstOrNull { it.issue == prediction.sourceIssue }?.date)
+            PredictionCard(prediction, drawDatesByIssue[prediction.sourceIssue])
         }
 
         // 号码组合
@@ -184,7 +184,7 @@ fun LotteryScreen(
                 }
             }
         }
-        items(draws.take(visibleDrawCount), key = { it.issue }) { draw ->
+        items(visibleDraws, key = { it.issue }) { draw ->
             DrawCard(draw)
         }
         if (draws.size > visibleDrawCount) {
@@ -504,7 +504,7 @@ private fun NumberRankingCard(report: LotteryResearchReport, predictions: List<L
             ChoiceButton("蓝球榜", selected = color == "blue") { color = "blue" }
         }
         Spacer(Modifier.height(SpacingSm))
-        Row(horizontalArrangement = Arrangement.spacedBy(SpacingSm), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+        Row(horizontalArrangement = Arrangement.spacedBy(SpacingSm)) {
             listOf("total" to "综合", "recent" to "近期", "omission" to "遗漏").forEach { (value, label) ->
                 ChoiceButton(label, selected = sortMode == value) { sortMode = value }
             }
@@ -538,25 +538,19 @@ private fun NumberRankingCard(report: LotteryResearchReport, predictions: List<L
 // ===== SettlementOverviewCard =====
 @Composable
 private fun SettlementOverviewCard(settlements: List<LotterySettlement>) {
-    val settlementIssues = remember(settlements) { groupSettlementsByIssue(settlements) }
-    val uniqueSettlements = remember(settlementIssues) { settlementIssues.flatten() }
-    val totals = remember(uniqueSettlements) {
-        val totalInvested = uniqueSettlements.sumOf { it.investedAmount }
-        val totalPrize = uniqueSettlements.sumOf { it.simulatedPrizeAmount }
-        Triple(totalInvested, totalPrize, if (totalInvested == 0.0) 0.0 else (totalPrize - totalInvested) / totalInvested)
-    }
+    val summary = remember(settlements) { summarizeSettlements(settlements) }
 
-    CollapsibleCard(title = "真实推荐结算", subtitle = "ROI ${percent(totals.third)}") {
-        MetricRow("已结算期数", settlementIssues.size.toString(), "累计 ROI", percent(totals.third))
+    CollapsibleCard(title = "真实推荐结算", subtitle = "ROI ${percent(summary.roi)}") {
+        MetricRow("已结算期数", summary.issueCount.toString(), "累计 ROI", percent(summary.roi))
         Spacer(Modifier.height(SpacingSm))
-        MetricRow("累计投入", money(totals.first), "奖金", money(totals.second))
+        MetricRow("累计投入", money(summary.investedAmount), "奖金", money(summary.prizeAmount))
         Spacer(Modifier.height(SpacingMd))
         if (settlements.isEmpty()) {
             Text("还没有可结算的真实推荐。", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         } else {
-            settlementIssues.forEachIndexed { index, issueSettlements ->
+            summary.issueGroups.forEachIndexed { index, issueSettlements ->
                 SettlementIssueRow(issueSettlements)
-                if (index < settlementIssues.lastIndex) {
+                if (index < summary.issueGroups.lastIndex) {
                     Spacer(Modifier.height(SpacingSm))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                     Spacer(Modifier.height(SpacingSm))
@@ -630,8 +624,7 @@ private fun DrawCard(draw: LotteryDraw) {
         Spacer(Modifier.height(SpacingSm))
         Row(
             horizontalArrangement = Arrangement.spacedBy(SpacingSm),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.horizontalScroll(rememberScrollState())
+            verticalAlignment = Alignment.CenterVertically
         ) {
             draw.redBalls.forEach { BallSmall(it.toString().padStart(2, '0'), isRed = true) }
             BallSmall(draw.blueBall.toString().padStart(2, '0'), isRed = false)

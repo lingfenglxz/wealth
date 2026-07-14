@@ -33,6 +33,7 @@ import com.demo.wealth.ui.components.Panel
 import com.demo.wealth.ui.components.SectionHeader
 import com.demo.wealth.ui.money
 import com.demo.wealth.ui.expectedSsqDrawDate
+import com.demo.wealth.ui.summarizeSettlements
 import com.demo.wealth.ui.theme.InfoContainer
 import com.demo.wealth.ui.theme.OnInfoContainer
 import com.demo.wealth.ui.theme.OnPrimary
@@ -92,14 +93,7 @@ fun HomeScreen(
  */
 @Composable
 private fun RoiHeroCard(settlements: List<LotterySettlement>) {
-    val totals = remember(settlements) {
-        val totalInvested = settlements.sumOf { it.investedAmount }
-        val totalPrize = settlements.sumOf { it.simulatedPrizeAmount }
-        Triple(totalInvested, totalPrize, if (totalInvested == 0.0) 0.0 else (totalPrize - totalInvested) / totalInvested)
-    }
-    val totalInvested = totals.first
-    val totalPrize = totals.second
-    val totalRoi = totals.third
+    val summary = remember(settlements) { summarizeSettlements(settlements) }
 
     Box(
         modifier = Modifier
@@ -116,11 +110,11 @@ private fun RoiHeroCard(settlements: List<LotterySettlement>) {
             )
             Spacer(Modifier.height(SpacingSm))
             Text(
-                signedRoi(totalRoi),
+                signedRoi(summary.roi),
                 style = MaterialTheme.typography.displayLarge,
                 color = OnPrimary
             )
-            if (totalRoi >= 0) {
+            if (summary.roi >= 0) {
                 Spacer(Modifier.height(SpacingSm))
                 Box(
                     modifier = Modifier
@@ -141,9 +135,9 @@ private fun RoiHeroCard(settlements: List<LotterySettlement>) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                RoiStat("已结算", "${settlements.size} 期")
-                RoiStat("投入", money(totalInvested))
-                RoiStat("奖金", money(totalPrize))
+                RoiStat("已结算", "${summary.issueCount} 期")
+                RoiStat("投入", money(summary.investedAmount))
+                RoiStat("奖金", money(summary.prizeAmount))
             }
         }
     }

@@ -569,8 +569,7 @@ class WealthRepository(context: Context) {
 internal fun buildSsqRecommendationPath(
     compoundCount: Int = 1,
     compoundRedCount: Int = 6,
-    compoundBlueCount: Int = 3,
-    limit: Int = 3000
+    compoundBlueCount: Int = 3
 ): String =
     "/api/lottery/ssq/recommendations" +
-        "?compoundCount=$compoundCount&redCount=$compoundRedCount&blueCount=$compoundBlueCount&limit=$limit"
+        "?compoundCount=$compoundCount&redCount=$compoundRedCount&blueCount=$compoundBlueCount"

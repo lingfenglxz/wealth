@@ -3,6 +3,7 @@ package com.demo.wealth.ui
 import com.demo.wealth.data.LotteryBallDetail
 import com.demo.wealth.data.LotteryDraw
 import com.demo.wealth.data.LotterySettlementDetail
+import com.demo.wealth.data.LotterySettlement
 import com.demo.wealth.data.FootballRecommendationEntity
 import org.json.JSONArray
 import org.json.JSONObject
@@ -66,8 +67,30 @@ fun overdueNumbers(draws: List<LotteryDraw>, range: IntRange, red: Boolean): Lis
     }.sortedWith(compareByDescending<Pair<Int, Int>> { it.second }.thenBy { it.first }).map { it.first }
 }
 
-fun groupSettlementsByIssue(settlements: List<com.demo.wealth.data.LotterySettlement>): List<List<com.demo.wealth.data.LotterySettlement>> =
+fun groupUniqueWagerSettlementsByIssue(settlements: List<com.demo.wealth.data.LotterySettlement>): List<List<com.demo.wealth.data.LotterySettlement>> =
     settlements.distinctBy { it.issue to it.detailJson }.groupBy { it.issue }.values.toList()
+
+data class LotterySettlementSummary(
+    val issueGroups: List<List<LotterySettlement>>,
+    val investedAmount: Double,
+    val prizeAmount: Double,
+    val roi: Double
+) {
+    val issueCount: Int get() = issueGroups.size
+}
+
+fun summarizeSettlements(settlements: List<LotterySettlement>): LotterySettlementSummary {
+    val issueGroups = groupUniqueWagerSettlementsByIssue(settlements)
+    val uniqueSettlements = issueGroups.flatten()
+    val invested = uniqueSettlements.sumOf { it.investedAmount }
+    val prize = uniqueSettlements.sumOf { it.simulatedPrizeAmount }
+    return LotterySettlementSummary(
+        issueGroups = issueGroups,
+        investedAmount = invested,
+        prizeAmount = prize,
+        roi = if (invested == 0.0) 0.0 else (prize - invested) / invested
+    )
+}
 
 // ===== JSON 解析 =====
 

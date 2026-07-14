@@ -133,14 +133,19 @@
 
 - 只动画颜色、透明度和变换；不加入装饰性滚动动画。
 - 尊重系统“减少动态效果”。加载时只对必要进度指示器动画。
-- 页面状态使用 `collectAsStateWithLifecycle`，仅当前目的地订阅业务流。
+- 页面列表与详情数据使用 `collectAsStateWithLifecycle`，并下沉到当前目的地；导航壳只保留连接与全局同步状态。
 - 号码排行使用带稳定 key 的 `LazyRow`，避免一次测量全部项目。
 
 ### Android Frame Evidence
 
 - 目标：janky frames ≤ 5%，P90 ≤ 16ms，P95 ≤ 24ms，无 >700ms 冻结帧。
-- 2026-07-14 基线：当前 `adb devices` 无在线设备，无法采集同设备十次滑动的可信基线。
-- 改造后：待同一 Android 设备连接后执行十次完整福彩页滑动并记录 `dumpsys gfxinfo com.demo.wealth framestats`；未采集前不得声称真机指标已达标。
+- 2026-07-14 基线：改造前设备未连接，因此没有可与改造后同构建、同设备比较的可信基线；不补造基线数据。
+- 2026-07-14 真机压力 A/B：BKQ-AN00（1256×2760）安装 debug APK，使用同一脚本连续执行 140 个全屏手势。移除历史开奖与排序行的嵌套横向滚动、缓存可见开奖记录与期号日期映射前为 4515 帧、janky 507 帧（11.23%）、P90 17ms、P95 22ms；优化后为 4893 帧、janky 380 帧（7.77%）、P90 13ms、P95 18ms。慢 UI 帧由 474 降到 353，两个样本均无 >700ms 冻结帧。
+- 压力脚本不是最终验收口径：它连续注入 140 个手势，优化后仍记录 5078 次 high input latency，远高于计划的十次纵向滑动。
+- 2026-07-14 最终十手势复测：BKQ-AN00（1256×2760）安装最新 debug APK，`dumpsys gfxinfo com.demo.wealth reset` 后在福彩页连续执行 10 次全屏纵向滑动。结果：1029 帧、janky 7 帧（0.68%）、P50 5ms、P90 8ms、P95 8ms、P99 15ms，直方图最长帧约 21ms，无 >700ms 冻结帧。janky ≤ 5%、P90 ≤ 16ms、P95 ≤ 24ms 全部达标。
+- GPU P95 为 4–5ms，慢帧主要来自 UI 线程而非 GPU。`dumpsys display` 显示设备工作在 120Hz 物理模式，presentation deadline 约 11.3ms；高刷新率截止线和 debug 构建开销会放大系统 jank 计数。
+- 曾尝试用 AndroidX Macrobenchmark 1.4.1 在该设备补充 release/profile 数据，但 Perfetto/Profile 输出阶段稳定进入 `D (disk sleep)`，5–15 分钟内输出目录保持 0 字节。由于未生成应用自身 Profile，且临时基准配置会影响正式 release 签名，相关实验模块未保留在项目中，也未将失败结果包装成通过。
+- 诊断结论：福彩滚动的主要成本是历史卡进入视口时的首次组合/测量以及连续输入排队；页面状态订阅下沉、生命周期感知收集、惰性横向列表、扁平卡片、取消推荐横向滚动和本轮历史列表精简均已落地。十手势复测与压力 A/B 均证明短慢帧显著减少，且最终门槛已达标。
 
 ### Browser Preview Evidence
 
