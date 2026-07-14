@@ -30,7 +30,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.demo.wealth.ui.theme.CardPadding
 import com.demo.wealth.ui.theme.CardShape
-import com.demo.wealth.ui.theme.Elevation1
 import com.demo.wealth.ui.theme.BorderSubtle
 import com.demo.wealth.ui.theme.SpacingXs
 import com.demo.wealth.ui.theme.SpacingSm
@@ -72,7 +71,7 @@ fun CollapsibleCard(
     Card(
         shape = CardShape,
         colors = CardDefaults.cardColors(containerColor = Surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = Elevation1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, BorderSubtle),
         modifier = Modifier.fillMaxWidth()
     ) {

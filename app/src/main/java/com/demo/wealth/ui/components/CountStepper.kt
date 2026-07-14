@@ -2,7 +2,6 @@ package com.demo.wealth.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
@@ -10,8 +9,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -22,9 +20,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.demo.wealth.ui.theme.ButtonShape
-import com.demo.wealth.ui.theme.OnPrimary
-import com.demo.wealth.ui.theme.Primary
+import androidx.compose.material3.IconButtonDefaults
 import com.demo.wealth.ui.theme.SpacingMd
 import com.demo.wealth.ui.theme.TextPrimary
 
@@ -69,15 +65,11 @@ fun CountStepper(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(SpacingMd)
         ) {
-            Button(
+            FilledTonalIconButton(
                 onClick = { onChange((value - step).coerceAtLeast(min)) },
-                shape = ButtonShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Primary,
-                    contentColor = OnPrimary
-                ),
+                colors = IconButtonDefaults.filledTonalIconButtonColors(),
                 modifier = Modifier
-                    .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
+                    .size(40.dp)
                     .semantics { contentDescription = "减少$label" }
             ) {
                 Icon(Icons.Default.Remove, contentDescription = null)
@@ -88,15 +80,11 @@ fun CountStepper(
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
             )
-            Button(
+            FilledTonalIconButton(
                 onClick = { onChange((value + step).coerceAtMost(max)) },
-                shape = ButtonShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Primary,
-                    contentColor = OnPrimary
-                ),
+                colors = IconButtonDefaults.filledTonalIconButtonColors(),
                 modifier = Modifier
-                    .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
+                    .size(40.dp)
                     .semantics { contentDescription = "增加$label" }
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)

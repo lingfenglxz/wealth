@@ -5,6 +5,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
@@ -61,6 +64,7 @@ import com.demo.wealth.ui.components.Panel
 import com.demo.wealth.ui.components.SectionHeader
 import com.demo.wealth.ui.frequentNumbers
 import com.demo.wealth.ui.groupSettlementsByIssue
+import com.demo.wealth.ui.expectedSsqDrawDate
 import com.demo.wealth.ui.money
 import com.demo.wealth.ui.nextIssueLabel
 import com.demo.wealth.ui.nextVisibleCount
@@ -71,7 +75,6 @@ import com.demo.wealth.ui.parseStringArray
 import com.demo.wealth.ui.percent
 import com.demo.wealth.ui.signedPercent
 import com.demo.wealth.ui.theme.ErrorContainer
-import com.demo.wealth.ui.theme.ButtonHeightLarge
 import com.demo.wealth.ui.theme.InfoContainer
 import com.demo.wealth.ui.theme.OnErrorContainer
 import com.demo.wealth.ui.theme.OnInfoContainer
@@ -86,14 +89,14 @@ import com.demo.wealth.ui.theme.TextSecondary
 import com.demo.wealth.ui.theme.TouchTargetMin
 
 /**
- * 福彩页 - 双色球实验模型
+ * 福彩页 - 双色球
  *
  * 布局优化：
  * - 移除 WelfareLotteryPage 的单按钮 ChoiceButton 行
  * - 11 个卡片重组为 3 分组：「推荐与生成」「数据分析」「历史记录」
  * - 使用 GroupLabel 分组标题
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun LotteryScreen(
     draws: List<LotteryDraw>,
@@ -102,13 +105,7 @@ fun LotteryScreen(
     report: LotteryResearchReport?,
     compoundRedCount: Int,
     compoundBlueCount: Int,
-    recentWindow: Int,
-    budgetBets: Int,
-    modelVersion: String,
     onCompoundChange: (Int, Int) -> Unit,
-    onRecentWindowChange: (Int) -> Unit,
-    onBudgetChange: (Int) -> Unit,
-    onModelVersionChange: (String) -> Unit,
     onGenerate: (Int, Int) -> Unit,
     isGenerating: Boolean = false,
     errorMessage: String? = null,
@@ -125,7 +122,7 @@ fun LotteryScreen(
         item {
             val targetIssue = draws.firstOrNull()?.issue?.let { nextIssueLabel(it) } ?: "请先更新数据"
             ActionHeader(
-                "双色球实验模型",
+                "双色球",
                 "历史期数 ${draws.size} · 推荐目标 $targetIssue",
                 isGenerating
             ) {
@@ -139,17 +136,12 @@ fun LotteryScreen(
 
         // 推荐结果
         items(predictions, key = { it.id }) { prediction ->
-            PredictionCard(prediction)
+            PredictionCard(prediction, draws.firstOrNull { it.issue == prediction.sourceIssue }?.date)
         }
 
         // 号码组合
         item {
-            CompoundPlanCard(compoundRedCount, compoundBlueCount, report, onCompoundChange)
-        }
-
-        // 模型参数
-        item {
-            ModelParameterCard(modelVersion, recentWindow, budgetBets, onModelVersionChange, onRecentWindowChange, onBudgetChange)
+            CompoundPlanCard(compoundRedCount, compoundBlueCount, onCompoundChange)
         }
 
         // ===== 分组 2: 数据分析 =====
@@ -165,10 +157,6 @@ fun LotteryScreen(
 
         report?.backtest?.let { backtest ->
             item { LotteryBacktestCard(backtest) }
-        }
-
-        if (!report?.modelComparison.isNullOrEmpty()) {
-            item { ModelComparisonCard(report!!.modelComparison) }
         }
 
         if (report != null && (report.redRankings.isNotEmpty() || report.blueRankings.isNotEmpty())) {
@@ -220,34 +208,33 @@ private fun StickyGroupLabel(text: String) {
 // ===== ActionHeader =====
 @Composable
 private fun ActionHeader(title: String, subtitle: String, loading: Boolean, onClick: () -> Unit) {
-    Panel(raised = true) {
-        MetaPill("研究台", PrimaryContainer, PrimaryHover)
-        Spacer(Modifier.height(SpacingSm))
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-        Spacer(Modifier.height(SpacingMd))
-        Button(
-            onClick = onClick,
-            enabled = !loading,
-            modifier = Modifier.fillMaxWidth().height(ButtonHeightLarge)
+    Panel {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (loading) {
-                androidx.compose.material3.CircularProgressIndicator(
-                    modifier = Modifier.height(18.dp).width(18.dp),
-                    strokeWidth = 2.dp
-                )
-            } else {
-                androidx.compose.material3.Icon(Icons.Default.PlayArrow, contentDescription = null)
+            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Button(onClick = onClick, enabled = !loading) {
+                if (loading) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        modifier = Modifier.height(18.dp).width(18.dp), strokeWidth = 2.dp
+                    )
+                } else {
+                    androidx.compose.material3.Icon(Icons.Default.PlayArrow, contentDescription = null)
+                }
+                Spacer(Modifier.width(SpacingSm))
+                Text(if (loading) "生成中" else "生成推荐")
             }
-            Spacer(Modifier.width(SpacingSm))
-            Text(if (loading) "生成中..." else "生成推荐")
         }
+        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
     }
 }
 
 // ===== PredictionCard =====
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PredictionCard(prediction: LotteryPrediction) {
+private fun PredictionCard(prediction: LotteryPrediction, sourceDate: String?) {
     var expanded by rememberSaveable(prediction.id) { mutableStateOf(false) }
     val reasonLines = remember(prediction.reasons) {
         prediction.reasons.lineSequence().filter { it.isNotBlank() }.toList()
@@ -257,29 +244,35 @@ private fun PredictionCard(prediction: LotteryPrediction) {
     }
 
     Panel {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(SpacingSm),
-            modifier = Modifier.horizontalScroll(rememberScrollState())
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                "第 ${prediction.targetIssue.ifBlank { "下一" }} 期推荐",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
             MetaPill(
-                if (prediction.redBalls.size > 6 || prediction.blueBalls.size > 1) "复式推荐" else "单式推荐",
+                if (prediction.redBalls.size > 6 || prediction.blueBalls.size > 1) "复式" else "单式",
                 PrimaryContainer, PrimaryHover
             )
-            MetaPill("模型 ${prediction.modelVersion}", InfoContainer, OnInfoContainer)
         }
         Spacer(Modifier.height(SpacingSm))
         Text(
-            "目标期号：第 ${prediction.targetIssue.ifBlank { "下一" }} 期 · 最新开奖：第 ${prediction.sourceIssue.ifBlank { "-" }} 期",
+            sourceDate?.let(::expectedSsqDrawDate)?.let { "预计开奖：$it" } ?: "预计开奖日期待更新",
             style = MaterialTheme.typography.bodySmall,
             color = TextSecondary
         )
         Spacer(Modifier.height(SpacingSm))
-        Row(
+        Text("红球", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+        Spacer(Modifier.height(SpacingSm))
+        FlowRow(
             horizontalArrangement = Arrangement.spacedBy(SpacingSm),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.horizontalScroll(rememberScrollState())
-        ) {
-            prediction.redBalls.forEach { Ball(it.toString().padStart(2, '0'), isRed = true) }
+            verticalArrangement = Arrangement.spacedBy(SpacingSm),
+            modifier = Modifier.fillMaxWidth()
+        ) { prediction.redBalls.forEach { Ball(it.toString().padStart(2, '0'), isRed = true) } }
+        Spacer(Modifier.height(SpacingMd))
+        Text("蓝球", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+        Spacer(Modifier.height(SpacingSm))
+        Row(horizontalArrangement = Arrangement.spacedBy(SpacingSm)) {
             prediction.blueBalls.forEach { Ball(it.toString().padStart(2, '0'), isRed = false) }
         }
         Spacer(Modifier.height(SpacingSm))
@@ -290,7 +283,7 @@ private fun PredictionCard(prediction: LotteryPrediction) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("评分 ${"%.2f".format(prediction.score)}", fontWeight = FontWeight.SemiBold)
+            Text("模型综合分 ${"%.2f".format(prediction.score)}", fontWeight = FontWeight.SemiBold)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(SpacingSm),
@@ -367,53 +360,19 @@ private fun BallDetailRow(detail: LotteryBallDetail) {
 
 // ===== CompoundPlanCard =====
 @Composable
-private fun CompoundPlanCard(redCount: Int, blueCount: Int, report: LotteryResearchReport?, onChange: (Int, Int) -> Unit) {
+private fun CompoundPlanCard(redCount: Int, blueCount: Int, onChange: (Int, Int) -> Unit) {
     val bets = LotteryRules.combinationCount(redCount, 6) * blueCount
     Panel {
         Text("号码组合", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(SpacingSm))
         Text(
-            "当前实际生成：一组 ${redCount}+${blueCount}，约 $bets 注。",
+            "C($redCount, 6) × $blueCount = $bets 注",
             style = MaterialTheme.typography.bodySmall, color = TextSecondary
         )
         Spacer(Modifier.height(SpacingMd))
         CountStepper("红球", redCount, 6, 20) { onChange(it, blueCount) }
         Spacer(Modifier.height(SpacingSm))
         CountStepper("蓝球", blueCount, 1, 16) { onChange(redCount, it) }
-        report?.budgetPlan?.let { plan ->
-            Spacer(Modifier.height(SpacingMd))
-            Text("基于预算上限的建议：${plan.redCount}+${plan.blueCount}，${plan.betCount} 注", fontWeight = FontWeight.SemiBold)
-            Text(plan.reason, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-            Spacer(Modifier.height(SpacingSm))
-            Button(onClick = { onChange(plan.redCount, plan.blueCount) }) {
-                Text("设为当前组合")
-            }
-        }
-    }
-}
-
-// ===== ModelParameterCard =====
-@Composable
-private fun ModelParameterCard(
-    modelVersion: String, recentWindow: Int, budgetBets: Int,
-    onModelVersionChange: (String) -> Unit,
-    onRecentWindowChange: (Int) -> Unit,
-    onBudgetChange: (Int) -> Unit
-) {
-    Panel {
-        Text("模型参数", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(SpacingSm))
-        Text("模型版本", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-        Spacer(Modifier.height(SpacingSm))
-        Row(horizontalArrangement = Arrangement.spacedBy(SpacingSm), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-            listOf("auto" to "自动", "recent_focus_v3" to "近期", "hit_rate_v4" to "命中", "balanced_v2" to "均衡", "baseline_v1" to "基线").forEach { (value, label) ->
-                ChoiceButton(label, selected = modelVersion == value) { onModelVersionChange(value) }
-            }
-        }
-        Spacer(Modifier.height(SpacingMd))
-        CountStepper("最近窗口", recentWindow, 30, 500, step = 10, onChange = onRecentWindowChange)
-        Spacer(Modifier.height(SpacingSm))
-        CountStepper("预算上限（注）", budgetBets, 1, 5000, onChange = onBudgetChange)
     }
 }
 
@@ -446,7 +405,11 @@ private fun LotteryAnalysisCard(
         }
         val latestDraw = latest ?: return@Panel
         val targetIssue = prediction?.targetIssue?.ifBlank { null } ?: nextIssueLabel(latestDraw.issue)
-        Text("目标期号：第 $targetIssue 期；最新开奖：第 ${latestDraw.issue} 期 ${latestDraw.date}", style = MaterialTheme.typography.bodyMedium)
+        Text(
+            expectedSsqDrawDate(latestDraw.date)?.let { "目标期号：第 $targetIssue 期 · 预计开奖：$it" }
+                ?: "目标期号：第 $targetIssue 期 · 预计开奖日期待更新",
+            style = MaterialTheme.typography.bodyMedium
+        )
         Spacer(Modifier.height(SpacingSm))
         MetricRow("样本期数", draws.size.toString(), "组合注数", (LotteryRules.combinationCount(compoundRedCount, 6) * compoundBlueCount).toString())
         Spacer(Modifier.height(SpacingSm))
@@ -482,8 +445,8 @@ private fun LotteryTrendCard(draws: List<LotteryDraw>) {
     CollapsibleCard(title = "走势可视化", subtitle = "最近 30 期") {
         HeatmapGrid(recent)
         Spacer(Modifier.height(SpacingMd))
-        Row(horizontalArrangement = Arrangement.spacedBy(SpacingSm), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-            (1..33).forEach { number ->
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(SpacingSm)) {
+            items((1..33).toList(), key = { it }) { number ->
                 ChoiceButton(number.toString().padStart(2, '0'), selected = selectedNumber.intValue == number) {
                     selectedNumber.intValue = number
                 }
@@ -511,21 +474,6 @@ private fun LotteryBacktestCard(report: com.demo.wealth.data.LotteryBacktestRepo
         MetricRow("蓝球命中率", percent(report.blueHitRate), "至少3红", percent(report.atLeastThreeRedRate))
         Spacer(Modifier.height(SpacingSm))
         MetricRow("模拟中奖率", percent(report.prizeHitRate), "平均注数", "%.1f".format(report.averageBetCount))
-    }
-}
-
-// ===== ModelComparisonCard =====
-@Composable
-private fun ModelComparisonCard(comparisons: List<com.demo.wealth.data.LotteryModelComparison>) {
-    Panel {
-        Text("模型对比", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(SpacingSm))
-        comparisons.forEach { item ->
-            Text(
-                "${item.version} · 模拟中奖 ${percent(item.prizeHitRate)} · 平均最佳红球 ${"%.2f".format(item.averageBestRedHits)} · 蓝球 ${percent(item.blueHitRate)} · 至少3红 ${percent(item.atLeastThreeRedRate)}",
-                style = MaterialTheme.typography.bodySmall, color = TextSecondary
-            )
-        }
     }
 }
 
@@ -562,8 +510,8 @@ private fun NumberRankingCard(report: LotteryResearchReport, predictions: List<L
             }
         }
         Spacer(Modifier.height(SpacingSm))
-        Row(horizontalArrangement = Arrangement.spacedBy(SpacingSm), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-            sorted.forEach { item ->
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(SpacingSm)) {
+            items(sorted, key = { "${it.color}-${it.number}" }) { item ->
                 ChoiceButton(
                     text = "${item.number.toString().padStart(2, '0')} #${item.rank}",
                     selected = item.number == selected?.number,

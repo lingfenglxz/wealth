@@ -1,963 +1,185 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WealthLab 重新设计预览 v2</title>
-<link rel="icon" href="data:,">
-<style>
-:root {
-  --primary: #10B981;
-  --primary-hover: #059669;
-  --primary-container: #ECFDF5;
-  --on-primary: #FFFFFF;
-  --text-primary: #0F172A;
-  --text-secondary: #475569;
-  --text-tertiary: #94A3B8;
-  --bg: #F8FAFC;
-  --surface: #FFFFFF;
-  --surface-variant: #F1F5F9;
-  --border-subtle: #E2E8F0;
-  --border-default: #CBD5E1;
-  --success: #10B981;
-  --error: #EF4444;
-  --warning: #F59E0B;
-  --info: #3B82F6;
-  --lottery-red: #DC2626;
-  --lottery-blue: #2563EB;
-  --heat-1: #FEE2E2; --heat-2: #FCA5A5; --heat-3: #F87171; --heat-4: #EF4444; --heat-5: #B91C1C;
-  --shadow-1: 0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06);
-  --shadow-2: 0 4px 12px rgba(15,23,42,0.08);
-  --shadow-3: 0 8px 24px rgba(15,23,42,0.12);
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  font-family: var(--font-sans);
-  background: #E5E7EB;
-  color: var(--text-primary);
-  -webkit-font-smoothing: antialiased;
-  padding: 32px 0;
-}
-.page-container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
-.section-title-main { font-size: 32px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.02em; }
-.section-desc { font-size: 16px; color: var(--text-secondary); margin-bottom: 32px; line-height: 1.5; }
-.section-block { margin-bottom: 64px; }
-.section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
-.section-header h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
-.badge { background: var(--primary-container); color: var(--primary-hover); font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
-.badge-change { background: #FEF3C7; color: #B45309; }
-.badge-remove { background: #FEE2E2; color: #991B1B; }
-.badge-new { background: #DBEAFE; color: #1D4ED8; }
-
-/* 手机框 */
-.phone-frame {
-  width: 390px; background: var(--bg); border-radius: 40px; overflow: hidden;
-  box-shadow: 0 20px 60px rgba(15,23,42,0.2), 0 0 0 12px #1F2937, 0 0 0 14px #374151;
-  margin: 0 auto; position: relative; min-height: 800px;
-}
-.phone-status-bar { height: 44px; background: var(--surface); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; font-size: 14px; font-weight: 600; }
-.phone-content { min-height: 700px; padding-bottom: 80px; }
-
-/* 底部导航 - 优化：增大触控区，激活态更明显 */
-.bottom-nav { position: absolute; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border-subtle); display: flex; padding: 8px 0 24px; box-shadow: 0 -1px 8px rgba(15,23,42,0.04); }
-.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; color: var(--text-tertiary); font-size: 11px; font-weight: 500; cursor: pointer; min-height: 56px; justify-content: center; }
-.nav-item.active { color: var(--primary); }
-.nav-item.active .nav-icon-wrap { background: var(--primary-container); border-radius: 20px; padding: 6px 20px; }
-.nav-icon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
-
-/* 卡片 */
-.card { background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-1); padding: 16px; }
-.card-raised { box-shadow: var(--shadow-2); }
-
-/* 按钮 - 统一规范 */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 12px; font-weight: 600; border: none; cursor: pointer; transition: all 0.15s; font-family: var(--font-sans); }
-.btn-primary { background: var(--primary); color: white; box-shadow: 0 1px 2px rgba(16,185,129,0.3); }
-.btn-primary:hover { background: var(--primary-hover); }
-.btn-outline { background: transparent; color: var(--text-primary); border: 1.5px solid var(--border-default); }
-.btn-outline:hover { background: var(--surface-variant); border-color: var(--primary); color: var(--primary); }
-.btn-ghost { background: transparent; color: var(--primary); }
-.btn-danger { background: var(--error); color: white; }
-/* 按钮尺寸规范 */
-.btn-lg { height: 52px; padding: 0 24px; font-size: 16px; width: 100%; }
-.btn-md { height: 44px; padding: 0 20px; font-size: 14px; }
-.btn-sm { height: 36px; padding: 0 14px; font-size: 13px; }
-.btn-loading { background: var(--primary-hover); cursor: wait; opacity: 0.8; }
-.spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* 彩球 - 立体 */
-.ball { width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; box-shadow: inset 0 -3px 6px rgba(0,0,0,0.2), inset 0 2px 3px rgba(255,255,255,0.3), 0 2px 4px rgba(0,0,0,0.15); }
-.ball-red { background: radial-gradient(circle at 35% 30%, #F87171, var(--lottery-red)); }
-.ball-blue { background: radial-gradient(circle at 35% 30%, #60A5FA, var(--lottery-blue)); }
-.ball-sm { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums; }
-.ball-sm.red { background: var(--lottery-red); }
-.ball-sm.blue { background: var(--lottery-blue); }
-
-/* Pill */
-.pill { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; min-height: 28px; }
-.pill-primary { background: var(--primary-container); color: var(--primary-hover); }
-.pill-info { background: #DBEAFE; color: #1D4ED8; }
-.pill-warning { background: #FEF3C7; color: #B45309; }
-.pill-error { background: #FEE2E2; color: #991B1B; }
-.pill-neutral { background: var(--surface-variant); color: var(--text-secondary); }
-
-/* 指标卡 */
-.metric-card { background: var(--surface-variant); border-radius: 12px; padding: 12px; border: 1px solid var(--border-subtle); }
-.metric-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; margin-bottom: 4px; }
-.metric-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-
-/* 页面通用 */
-.app-header { padding: 16px; background: var(--surface); border-bottom: 1px solid var(--border-subtle); }
-.app-header h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
-.app-header p { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
-.screen-content { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.card-header h3 { font-size: 16px; font-weight: 700; }
-.card-subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5; }
-
-/* 选择按钮 - 优化触控 */
-.choice-btn { padding: 8px 14px; min-height: 40px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border-default); background: var(--surface); color: var(--text-secondary); }
-.choice-btn.selected { background: var(--primary); color: white; border-color: var(--primary); }
-
-/* 号码选择器 - 优化触控 */
-.number-selector { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0; margin: 12px 0; }
-.num-btn { min-width: 48px; height: 48px; border-radius: 12px; font-size: 14px; font-weight: 600; border: 1.5px solid var(--border-default); background: var(--surface); color: var(--text-secondary); flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.num-btn .rank { font-size: 9px; color: var(--text-tertiary); font-weight: 500; }
-.num-btn.selected { background: var(--primary); color: white; border-color: var(--primary); }
-.num-btn.selected .rank { color: rgba(255,255,255,0.8); }
-
-/* 计数器 */
-.stepper { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; }
-.stepper-label { font-size: 15px; font-weight: 600; }
-.stepper-controls { display: flex; align-items: center; gap: 12px; }
-.step-btn { width: 44px; height: 44px; border-radius: 12px; background: var(--surface-variant); border: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; cursor: pointer; }
-.step-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 36px; text-align: center; }
-
-/* 输入框 */
-.input-field { width: 100%; height: 48px; padding: 0 16px; border: 1.5px solid var(--border-default); border-radius: 12px; font-size: 15px; font-family: var(--font-sans); background: var(--surface); outline: none; }
-.input-field:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(16,185,129,0.1); }
-.input-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
-
-/* 热力图 */
-.heatmap { display: grid; grid-template-columns: repeat(11, 1fr); gap: 4px; margin: 12px 0; }
-.heat-cell { aspect-ratio: 1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
-.heat-0 { background: var(--surface-variant); color: var(--text-secondary); }
-.heat-1 { background: var(--heat-1); color: #991B1B; }
-.heat-2 { background: var(--heat-2); color: #991B1B; }
-.heat-3 { background: var(--heat-3); color: white; }
-.heat-4 { background: var(--heat-4); color: white; }
-.heat-5 { background: var(--heat-5); color: white; }
-
-/* 图表 */
-.chart-container { background: var(--surface-variant); border-radius: 12px; padding: 16px; margin: 12px 0; }
-.chart-svg { width: 100%; height: 100px; }
-
-/* Tab Bar */
-.tab-bar { display: flex; background: var(--surface-variant); border-radius: 12px; padding: 4px; margin-bottom: 12px; }
-.tab-btn { flex: 1; padding: 10px 12px; border: none; background: transparent; font-size: 13px; font-weight: 600; color: var(--text-secondary); border-radius: 8px; cursor: pointer; min-height: 40px; }
-.tab-btn.active { background: var(--surface); color: var(--text-primary); box-shadow: var(--shadow-1); }
-
-/* 历史开奖 */
-.draw-item { display: flex; align-items: center; gap: 12px; padding: 10px; background: var(--surface-variant); border-radius: 10px; margin-bottom: 6px; }
-.draw-issue { font-size: 12px; font-weight: 600; color: var(--text-secondary); min-width: 72px; }
-.draw-balls { display: flex; gap: 4px; align-items: center; }
-
-/* 空状态 */
-.empty-state { text-align: center; padding: 32px 16px; }
-.empty-icon { width: 48px; height: 48px; margin: 0 auto 12px; background: var(--surface-variant); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-.empty-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-.empty-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
-
-/* 对比 */
-.comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; }
-.comparison-label { text-align: center; font-size: 14px; font-weight: 600; margin-bottom: 16px; padding: 8px; border-radius: 12px; }
-.comparison-label.before { background: #FEE2E2; color: #991B1B; }
-.comparison-label.after { background: var(--primary-container); color: var(--primary-hover); }
-
-/* 问题清单 */
-.issue-list { background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-1); padding: 24px; }
-.issue-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-subtle); }
-.issue-item:last-child { border-bottom: none; }
-.issue-tag { flex-shrink: 0; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; min-width: 60px; text-align: center; }
-.issue-tag.critical { background: #FEE2E2; color: #991B1B; }
-.issue-tag.high { background: #FEF3C7; color: #B45309; }
-.issue-tag.medium { background: #DBEAFE; color: #1D4ED8; }
-.issue-tag.remove { background: #F3E8FF; color: #6B21A8; }
-.issue-content { flex: 1; }
-.issue-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
-.issue-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
-
-/* ROI Hero */
-.roi-hero { background: linear-gradient(135deg, #10B981 0%, #059669 100%); border-radius: 16px; padding: 20px; color: white; position: relative; overflow: hidden; }
-.roi-hero::before { content: ''; position: absolute; top: -50%; right: -20%; width: 200px; height: 200px; background: rgba(255,255,255,0.1); border-radius: 50%; }
-.roi-label { font-size: 13px; opacity: 0.9; margin-bottom: 4px; }
-.roi-value { font-size: 36px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-.roi-trend { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; margin-top: 4px; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 999px; }
-.roi-stats { display: flex; gap: 24px; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.2); }
-.roi-stat-item .label { font-size: 11px; opacity: 0.8; }
-.roi-stat-item .value { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
-
-/* 赛事 */
-.match-teams { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-.match-meta { font-size: 12px; color: var(--text-secondary); }
-.odds-row { display: flex; gap: 8px; margin-top: 12px; }
-.odd-item { flex: 1; background: var(--surface-variant); border-radius: 12px; padding: 10px; text-align: center; border: 1px solid var(--border-subtle); }
-.odd-label { font-size: 11px; color: var(--text-secondary); font-weight: 500; margin-bottom: 2px; }
-.odd-value { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.odd-item.highlighted { background: var(--primary-container); border-color: var(--primary); }
-.odd-item.highlighted .odd-value { color: var(--primary-hover); }
-
-/* 连接状态 */
-.connection-status { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--primary-container); border-radius: 10px; border: 1px solid #A7F3D0; }
-.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
-
-/* 分组标题 */
-.group-header { font-size: 13px; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em; margin: 16px 0 8px; padding: 0 4px; }
-.group-header:first-child { margin-top: 0; }
-
-/* 折叠区头部 */
-.collapsible-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
-.chevron { transition: transform 0.2s; }
-.chevron.expanded { transform: rotate(90deg); }
-
-@media (max-width: 900px) {
-  .comparison { grid-template-columns: 1fr; }
-  .comparison > * { min-width: 0; }
-  .phone-frame { max-width: 100%; box-sizing: border-box; }
-  .comparison .phone-frame { transform: none !important; }
-}
-
-@media (max-width: 480px) {
-  body { padding: 24px 0; }
-  .page-container { padding: 0 20px; }
-  .section-title-main { font-size: 26px; }
-  .section-block { margin-bottom: 48px; }
-  .phone-frame { border-radius: 28px; }
-  [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
-  .draw-item { align-items: flex-start; flex-direction: column; }
-  .draw-balls { flex-wrap: wrap; }
-}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>搞钱 · 靛蓝扁平化设计预览</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --primary: #5062D9;
+      --primary-pressed: #4051C4;
+      --primary-container: #EEF0FF;
+      --background: #F5F6FA;
+      --surface: #FFFFFF;
+      --surface-variant: #F7F8FC;
+      --text: #171A25;
+      --muted: #667085;
+      --subtle: #98A2B3;
+      --border: #E1E5EE;
+      --red: #E5484D;
+      --blue: #3E63DD;
+      --success: #16855B;
+      --error: #C63C47;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    .showcase { width: min(1120px, 100%); margin: 0 auto; padding: 40px 24px 64px; }
+    .intro { margin-bottom: 32px; }
+    .intro h1 { margin: 0 0 8px; font-size: clamp(28px, 4vw, 40px); letter-spacing: -.03em; }
+    .intro p { margin: 0; color: var(--muted); line-height: 1.6; }
+    .token-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+    .token { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--muted); font-size: 13px; }
+    .swatch { width: 16px; height: 16px; border-radius: 50%; background: var(--swatch); }
+    .screen-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+    .screen-block h2 { margin: 0 0 12px; font-size: 18px; }
+    .phone { position: relative; min-height: 760px; overflow: hidden; border: 1px solid var(--border); border-radius: 24px; background: var(--background); }
+    .topbar { height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+    .brand { font-size: 24px; font-weight: 800; letter-spacing: -.03em; }
+    .status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--primary-container); color: var(--primary-pressed); font-size: 12px; font-weight: 650; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); }
+    .content { display: grid; gap: 12px; padding: 16px 16px 96px; }
+    .section-label { margin-top: 4px; color: var(--subtle); font-size: 12px; font-weight: 700; letter-spacing: .06em; }
+    .card { padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+    .card.indigo { border-color: var(--primary); background: var(--primary); color: white; }
+    .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .card h3 { margin: 0; font-size: 17px; }
+    .sub { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .indigo .sub { color: rgba(255,255,255,.78); }
+    .roi { margin: 12px 0 16px; font-size: 38px; font-weight: 800; letter-spacing: -.04em; }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .metric span { display: block; color: inherit; opacity: .72; font-size: 11px; }
+    .metric strong { display: block; margin-top: 3px; font-size: 15px; }
+    .pill { display: inline-flex; align-items: center; min-height: 28px; padding: 5px 10px; border-radius: 999px; background: var(--primary-container); color: var(--primary-pressed); font-size: 12px; font-weight: 700; }
+    .date { margin: 10px 0 14px; color: var(--muted); font-size: 13px; }
+    .ball-label { margin: 10px 0 7px; color: var(--muted); font-size: 12px; font-weight: 650; }
+    .balls { display: flex; flex-wrap: wrap; gap: 8px; }
+    .ball { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; color: white; font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .ball.red { background: var(--red); }
+    .ball.blue { background: var(--blue); }
+    .score-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+    .link { color: var(--primary); font-weight: 700; }
+    .btn { min-height: 40px; padding: 0 14px; border: 0; border-radius: 12px; background: var(--primary); color: white; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .btn:hover { background: var(--primary-pressed); }
+    .btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .btn.outline { border: 1px solid var(--border); background: var(--surface); color: var(--primary); }
+    .stepper { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; }
+    .step-controls { display: flex; align-items: center; gap: 10px; }
+    .step { width: 40px; height: 40px; border: 0; border-radius: 12px; background: var(--primary-container); color: var(--primary); font-size: 20px; cursor: pointer; }
+    .step-value { min-width: 24px; text-align: center; font-weight: 800; }
+    .match { padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .match:last-child { padding-bottom: 0; border-bottom: 0; }
+    .match strong { font-size: 15px; }
+    .odds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+    .odd { padding: 9px; border: 1px solid var(--border); border-radius: 10px; text-align: center; background: var(--surface-variant); font-size: 12px; }
+    .odd.selected { border-color: var(--primary); background: var(--primary-container); color: var(--primary-pressed); }
+    .input { width: 100%; height: 44px; margin-top: 8px; padding: 0 12px; border: 1px solid var(--border); border-radius: 12px; outline: none; color: var(--text); background: var(--surface); }
+    .input:focus { border-color: var(--primary); outline: 2px solid var(--primary-container); }
+    .sync-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid var(--border); }
+    .sync-row:first-of-type { margin-top: 14px; }
+    .sync-row small { display: block; margin-top: 2px; color: var(--muted); }
+    .nav { position: absolute; left: 0; right: 0; bottom: 0; height: 76px; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--border); background: var(--surface); }
+    .nav-item { display: grid; place-content: center; gap: 3px; text-align: center; color: var(--subtle); font-size: 11px; }
+    .nav-item span:first-child { font-size: 20px; }
+    .nav-item.active { color: var(--primary); font-weight: 700; }
+    @media (max-width: 760px) {
+      .showcase { padding: 24px 16px 48px; }
+      .screen-grid { grid-template-columns: 1fr; }
+      .phone { width: min(390px, 100%); margin: 0 auto; }
+    }
+  </style>
 </head>
 <body>
+  <main class="showcase">
+    <header class="intro">
+      <h1>搞钱 · UI 精简改造</h1>
+      <p>靛蓝主色、白色扁平卡片、紧凑按钮。绿色仅保留成功语义，推荐号码按红球与蓝球分行展示。</p>
+      <div class="token-row">
+        <span class="token"><i class="swatch" style="--swatch:#5062D9"></i>主色 #5062D9</span>
+        <span class="token"><i class="swatch" style="--swatch:#EEF0FF"></i>主色容器</span>
+        <span class="token"><i class="swatch" style="--swatch:#F5F6FA"></i>页面背景</span>
+        <span class="token"><i class="swatch" style="--swatch:#E1E5EE"></i>边框</span>
+      </div>
+    </header>
 
-<div class="page-container">
-
-<h1 class="section-title-main">WealthLab 重新设计预览 v2</h1>
-<p class="section-desc">现代金融科技风格 · 全面布局优化 · 信息架构重构 · 单文件拆分。本次重点优化卡片布局、按钮规范、冗余移除。</p>
-
-<!-- ==================== 问题清单与优化方案 ==================== -->
-<div class="section-block">
-  <div class="section-header">
-    <h2>布局与信息架构优化清单</h2>
-    <span class="badge badge-change">v2 新增</span>
-  </div>
-
-  <div class="issue-list">
-    <!-- 移除项 -->
-    <div class="issue-item">
-      <span class="issue-tag remove">移除</span>
-      <div class="issue-content">
-        <div class="issue-title">首页 StatusCard 状态提示卡</div>
-        <div class="issue-desc">移除首页顶部的"状态"横幅卡片。该信息属于系统反馈，不应占据首页黄金位置。改为：成功时静默，仅在 TopAppBar 小图标显示连接状态；有重要消息时用顶部 Toast/Snackbar 临时提示。</div>
-      </div>
-    </div>
-    <div class="issue-item">
-      <span class="issue-tag remove">移除</span>
-      <div class="issue-content">
-        <div class="issue-title">福彩页 WelfareLotteryPage 的单按钮 ChoiceButton 行</div>
-        <div class="issue-desc">第 304-306 行：只有一个"双色球"ChoiceButton 且 onClick 为空操作，纯装饰。直接移除整个 Row 和 game 状态，LotteryPage 直接渲染。</div>
-      </div>
-    </div>
-    <div class="issue-item">
-      <span class="issue-tag remove">移除</span>
-      <div class="issue-content">
-        <div class="issue-title">体彩页 SportsLotteryPage 的单按钮 ChoiceButton 行</div>
-        <div class="issue-desc">第 342-345 行：只有一个"足球彩票"ChoiceButton，selected=true 且 onClick={} 无操作。移除。</div>
-      </div>
-    </div>
-    <div class="issue-item">
-      <span class="issue-tag remove">移除</span>
-      <div class="issue-content">
-        <div class="issue-title">CardRow 死代码</div>
-        <div class="issue-desc">第 1245-1263 行：CardRow composable 定义后从未被调用。移除。</div>
-      </div>
-    </div>
-
-    <!-- 布局重构 -->
-    <div class="issue-item">
-      <span class="issue-tag high">重构</span>
-      <div class="issue-content">
-        <div class="issue-title">福彩页卡片过多(11个)，信息过载</div>
-        <div class="issue-desc">当前 LotteryPage 一屏内堆叠 11 个卡片（ActionHeader/分析/结算/走势/参数/组合/回测/对比/榜单/推荐/历史）。重组为 3 个分组：「推荐与生成」→「数据分析」→「历史记录」。用 sticky 分组标题分隔，支持快速跳转。</div>
-      </div>
-    </div>
-    <div class="issue-item">
-      <span class="issue-tag high">重构</span>
-      <div class="issue-content">
-        <div class="issue-title">首页布局重新排序</div>
-        <div class="issue-desc">原顺序：状态卡→结算→推荐→足球。新顺序：ROI Hero(结算)→推荐→足球→快捷入口。移除状态卡，ROI 提升为 Hero 卡片视觉焦点。</div>
-      </div>
-    </div>
-    <div class="issue-item">
-      <span class="issue-tag high">重构</span>
-      <div class="issue-content">
-        <div class="issue-title">体彩页嵌套展开 → 扁平化</div>
-        <div class="issue-desc">FootballRecommendationInline 在已展开的 FootballMatchCard 内再展开，三层嵌套。改为：赛事卡直接显示赔率三栏+推荐摘要，点击赛事进入详情视图（或底部 Sheet），消除嵌套。</div>
-      </div>
-    </div>
-    <div class="issue-item">
-      <span class="issue-tag medium">重构</span>
-      <div class="issue-content">
-        <div class="issue-title">数据页布局合并</div>
-        <div class="issue-desc">"双色球数据"和"体彩足球数据"两个卡片结构几乎相同。合并为单个"数据同步"卡片，内部分两个 section。减少重复，信息更紧凑。</div>
-      </div>
-    </div>
-
-    <!-- 按钮优化 -->
-    <div class="issue-item">
-      <span class="issue-tag high">按钮</span>
-      <div class="issue-content">
-        <div class="issue-title">按钮尺寸无规范，统一为 3 级</div>
-        <div class="issue-desc">当前按钮高度混乱（36dp Button 默认、无统一 padding）。规范：btn-lg(52dp,全宽主操作)、btn-md(44dp,常规)、btn-sm(36dp,辅助)。主 CTA 用 lg，次要用 md/sm。</div>
-      </div>
-    </div>
-    <div class="issue-item">
-      <span class="issue-tag high">按钮</span>
-      <div class="issue-content">
-        <div class="issue-title">"展开/收起"按钮样式冗余</div>
-        <div class="issue-desc">每个卡片都用 OutlinedButton 做"展开/收起"，视觉噪音大。改为：卡片标题右侧用图标箭头(▾)作为展开指示器，整行可点击，无需独立按钮。</div>
-      </div>
-    </div>
-    <div class="issue-item">
-      <span class="issue-tag medium">按钮</span>
-      <div class="issue-content">
-        <div class="issue-title">CountStepper 的 +/- 用 Text 字符</div>
-        <div class="issue-desc">第 682-684 行：用 Text("-")/Text("+") 作按钮内容，无图标、无无障碍标签。改为 Material Icons(Remove/Add) + contentDescription。</div>
-      </div>
-    </div>
-    <div class="issue-item">
-      <span class="issue-tag medium">按钮</span>
-      <div class="issue-content">
-        <div class="issue-title">数据页按钮全用水平 Row 包裹</div>
-        <div class="issue-desc">第 721、736、749 行：单按钮也用 Row+horizontalScroll 包裹，多余。直接渲染按钮即可。更新按钮改为全宽 btn-lg。</div>
-      </div>
-    </div>
-
-    <!-- 架构拆分 -->
-    <div class="issue-item">
-      <span class="issue-tag critical">架构</span>
-      <div class="issue-content">
-        <div class="issue-title">MainActivity.kt 1393 行单文件拆分</div>
-        <div class="issue-desc">37 个 composable 全挤在一个文件。拆分为：ui/theme/(7个令牌文件) + ui/components/(11个组件文件) + ui/screens/(4个页面文件) + MainActivity.kt(仅~80行入口)。每个文件单一职责。</div>
-      </div>
-    </div>
-
-    <!-- 其他 -->
-    <div class="issue-item">
-      <span class="issue-tag high">交互</span>
-      <div class="issue-content">
-        <div class="issue-title">静默截断列表</div>
-        <div class="issue-desc">.take(20/30/40) 截断无提示。改为：默认显示 N 条 + 底部"查看全部 X 条"按钮或"加载更多"。</div>
-      </div>
-    </div>
-    <div class="issue-item">
-      <span class="issue-tag high">交互</span>
-      <div class="issue-content">
-        <div class="issue-title">无加载/错误状态</div>
-        <div class="issue-desc">网络请求无 spinner、无禁用态、失败仅改字符串。按钮加载时禁用+spinner，失败显示错误卡+重试按钮。</div>
-      </div>
-    </div>
-    <div class="issue-item">
-      <span class="issue-tag medium">交互</span>
-      <div class="issue-content">
-        <div class="issue-title">展开状态用 remember，LazyColumn 回收后丢失</div>
-        <div class="issue-desc">卡片展开状态用 remember { mutableStateOf }，列表项被回收后状态重置。改为 rememberSaveable 或提升到 ViewModel。</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ==================== 首页对比 ==================== -->
-<div class="section-block">
-  <div class="section-header">
-    <h2>首页 (HomePage) 改造对比</h2>
-    <span class="badge badge-remove">移除状态卡</span>
-    <span class="badge badge-new">ROI Hero</span>
-  </div>
-
-  <div class="comparison">
-    <!-- 改造前 -->
-    <div>
-      <div class="comparison-label before">改造前 · 4 个卡片</div>
-      <div class="phone-frame" style="transform: scale(0.85); transform-origin: top center; min-height: 680px;">
-        <div class="phone-status-bar"><span>9:41</span><span>📶 🔋</span></div>
-        <div class="phone-content">
-          <div class="app-header"><h1>搞钱</h1><p>福彩与体彩实验台</p></div>
-          <div class="screen-content">
-            <!-- 状态卡（移除项） -->
-            <div style="background: #EAF6F1; border: 1px solid #CFE7DD; border-radius: 8px; padding: 14px;">
-              <div style="font-size: 11px; font-weight: 700; color: #0F6B55; text-transform: uppercase;">状态</div>
-              <div style="font-size: 14px; color: #16332B; margin-top: 4px;">双色球数据已更新至第 202627 期</div>
+    <section class="screen-grid">
+      <article class="screen-block">
+        <h2>首页</h2>
+        <div class="phone">
+          <div class="topbar"><span class="brand">搞钱</span><span class="status"><i class="dot"></i>已连接</span></div>
+          <div class="content">
+            <div class="card indigo">
+              <div class="sub">真实推荐累计 ROI</div><div class="roi">-60.53%</div>
+              <div class="metrics"><div class="metric"><span>已结算</span><strong>19 期</strong></div><div class="metric"><span>投入</span><strong>¥114</strong></div><div class="metric"><span>奖金</span><strong>¥45</strong></div></div>
             </div>
-            <div style="background: white; border: 1px solid #E5EAF0; border-radius: 8px; padding: 16px; opacity: 0.6;">
-              <div style="font-size: 16px; font-weight: 600;">真实推荐结算</div>
-              <div style="font-size: 13px; color: #61706C; margin: 4px 0 8px;">仅按每期实际复式方案统计。</div>
-              <div style="display: flex; gap: 12px; margin-bottom: 8px;">
-                <div style="flex:1; background: #F7F9FA; border: 1px solid #E6EBEF; border-radius: 8px; padding: 10px;">
-                  <div style="font-size: 11px; color: #68737C;">已结算期数</div>
-                  <div style="font-size: 16px; font-weight: 700;">8</div>
-                </div>
-                <div style="flex:1; background: #F7F9FA; border: 1px solid #E6EBEF; border-radius: 8px; padding: 10px;">
-                  <div style="font-size: 11px; color: #68737C;">累计 ROI</div>
-                  <div style="font-size: 16px; font-weight: 700;">12.40%</div>
-                </div>
-              </div>
-              <div style="display: flex; gap: 12px;">
-                <div style="flex:1; background: #F7F9FA; border: 1px solid #E6EBEF; border-radius: 8px; padding: 10px;">
-                  <div style="font-size: 11px; color: #68737C;">累计投入</div>
-                  <div style="font-size: 16px; font-weight: 700;">¥1,280</div>
-                </div>
-                <div style="flex:1; background: #F7F9FA; border: 1px solid #E6EBEF; border-radius: 8px; padding: 10px;">
-                  <div style="font-size: 11px; color: #68737C;">奖金</div>
-                  <div style="font-size: 16px; font-weight: 700;">¥1,438</div>
-                </div>
-              </div>
-            </div>
-            <div style="font-size: 16px; font-weight: 700;">第 202628 期双色球</div>
-            <div style="background: white; border: 1px solid #E5EAF0; border-radius: 8px; padding: 16px; opacity: 0.6;">
-              <div style="font-size: 13px; color: #61706C; margin-bottom: 8px;">目标期号：第 202628 期</div>
-              <div style="display: flex; gap: 6px;">
-                <div style="width:34px;height:34px;border-radius:50%;background:#C94444;color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">03</div>
-                <div style="width:34px;height:34px;border-radius:50%;background:#C94444;color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">11</div>
-                <div style="width:34px;height:34px;border-radius:50%;background:#C94444;color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">18</div>
-                <div style="width:34px;height:34px;border-radius:50%;background:#2868B8;color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;">09</div>
-              </div>
-            </div>
-            <div style="font-size: 16px; font-weight: 700;">体彩世界杯</div>
-            <div style="background: white; border: 1px solid #E5EAF0; border-radius: 8px; padding: 16px; opacity: 0.6;">
-              <div style="font-size: 13px; color: #61706C;">已准备 3 场赛事</div>
-              <div style="font-size: 15px; font-weight: 600; margin-top: 8px;">巴西 vs 阿根廷</div>
-              <div style="font-size: 13px; color: #61706C;">半决赛 · 2026-07-15 03:00</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <p style="text-align: center; font-size: 12px; color: var(--text-tertiary); margin-top: 8px;">状态卡占用黄金位置 · 结算数据平淡 · 无视觉焦点</p>
-    </div>
-
-    <!-- 改造后 -->
-    <div>
-      <div class="comparison-label after">改造后 · 3 个区块</div>
-      <div class="phone-frame" style="transform: scale(0.85); transform-origin: top center; min-height: 680px;">
-        <div class="phone-status-bar"><span>9:41</span><span>📶 🔋</span></div>
-        <div class="phone-content">
-          <!-- 顶部栏含连接状态图标（替代状态卡） -->
-          <div class="app-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <h1>搞钱</h1>
-              <p>福彩与体彩实验台</p>
-            </div>
-            <!-- 连接状态小图标，替代占满卡片的状态提示 -->
-            <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--primary-container); border-radius: 999px;">
-              <div class="status-dot"></div>
-              <span style="font-size: 12px; font-weight: 600; color: var(--primary-hover);">已同步</span>
-            </div>
-          </div>
-          <div class="screen-content">
-            <!-- ROI Hero 卡片（视觉焦点） -->
-            <div class="roi-hero">
-              <div class="roi-label">真实推荐累计 ROI</div>
-              <div class="roi-value">+12.40%</div>
-              <div class="roi-trend">▲ 较上期 +2.3%</div>
-              <div class="roi-stats">
-                <div class="roi-stat-item"><div class="label">已结算</div><div class="value">8 期</div></div>
-                <div class="roi-stat-item"><div class="label">投入</div><div class="value">¥1,280</div></div>
-                <div class="roi-stat-item"><div class="label">奖金</div><div class="value">¥1,438</div></div>
-              </div>
-            </div>
-
-            <!-- 推荐卡 -->
+            <div class="section-label">双色球</div>
             <div class="card">
-              <div class="card-header">
-                <h3>第 202628 期双色球</h3>
-                <span class="pill pill-primary">复式推荐</span>
-              </div>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">目标：第 202628 期 · 最新：第 202627 期</div>
-              <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                <div class="ball ball-red">03</div>
-                <div class="ball ball-red">11</div>
-                <div class="ball ball-red">18</div>
-                <div class="ball ball-red">22</div>
-                <div class="ball ball-red">27</div>
-                <div class="ball ball-red">31</div>
-                <div style="width:1px;height:24px;background:var(--border-default);margin:0 4px;"></div>
-                <div class="ball ball-blue">09</div>
-              </div>
-              <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 14px; color: var(--text-secondary);">评分 <strong style="font-variant-numeric: tabular-nums;">87.32</strong></span>
-                <!-- 展开用图标箭头，不用按钮 -->
-                <span style="font-size: 13px; color: var(--primary); font-weight: 600;">详情 ▾</span>
-              </div>
+              <div class="card-head"><h3>第 2026079 期推荐</h3><span class="pill">复式</span></div>
+              <div class="date">预计开奖：2026-07-16</div>
+              <div class="ball-label">红球</div><div class="balls"><i class="ball red">01</i><i class="ball red">02</i><i class="ball red">13</i><i class="ball red">18</i><i class="ball red">26</i><i class="ball red">31</i></div>
+              <div class="ball-label">蓝球</div><div class="balls"><i class="ball blue">09</i><i class="ball blue">12</i></div>
+              <div class="score-row"><span>模型综合分 <strong>61.25</strong></span><span class="link">详情</span></div>
             </div>
+            <div class="section-label">体彩世界杯</div>
+            <div class="card"><div class="card-head"><h3>足球彩票</h3><span class="pill">104 场</span></div><p class="sub">墨西哥 vs 南非<br>小组赛 A · 2026-06-12 03:00</p></div>
+          </div>
+          <nav class="nav"><span class="nav-item active"><span>⌂</span>首页</span><span class="nav-item"><span>◆</span>福彩</span><span class="nav-item"><span>○</span>体彩</span><span class="nav-item"><span>▤</span>数据</span></nav>
+        </div>
+      </article>
 
-            <!-- 足球赛事 - 更紧凑 -->
+      <article class="screen-block">
+        <h2>福彩</h2>
+        <div class="phone">
+          <div class="topbar"><span class="brand">搞钱</span><span class="status"><i class="dot"></i>已连接</span></div>
+          <div class="content">
+            <div class="section-label">推荐与生成</div>
+            <div class="card"><div class="card-head"><div><h3>双色球</h3><p class="sub">历史期数 500 · 推荐目标 2026079</p></div><button class="btn">▶ 生成推荐</button></div></div>
             <div class="card">
-              <div class="card-header">
-                <h3>体彩世界杯</h3>
-                <span class="pill pill-info">3 场</span>
-              </div>
-              <div style="font-size: 15px; font-weight: 600;">巴西 vs 阿根廷</div>
-              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">半决赛 · 07-15 03:00</div>
+              <div class="card-head"><h3>第 2026079 期推荐</h3><span class="pill">复式</span></div><div class="date">预计开奖：2026-07-16</div>
+              <div class="ball-label">红球</div><div class="balls"><i class="ball red">01</i><i class="ball red">02</i><i class="ball red">13</i><i class="ball red">18</i><i class="ball red">26</i><i class="ball red">31</i></div>
+              <div class="ball-label">蓝球</div><div class="balls"><i class="ball blue">09</i><i class="ball blue">12</i><i class="ball blue">15</i></div>
+              <div class="score-row"><span>模型综合分 <strong>61.25</strong></span><span class="link">展开说明⌄</span></div>
             </div>
+            <div class="card"><h3>号码组合</h3><p class="sub">C(8, 6) × 3 = 84 注</p><div class="stepper"><strong>红球</strong><span class="step-controls"><button class="step">−</button><span class="step-value">08</span><button class="step">＋</button></span></div><div class="stepper"><strong>蓝球</strong><span class="step-controls"><button class="step">−</button><span class="step-value">03</span><button class="step">＋</button></span></div></div>
+            <div class="section-label">数据分析</div><div class="card"><div class="card-head"><h3>走势可视化</h3><span class="link">最近 30 期⌄</span></div><p class="sub">号码选择使用惰性横向列表，滚动时仅组合可见项目。</p></div>
           </div>
+          <nav class="nav"><span class="nav-item"><span>⌂</span>首页</span><span class="nav-item active"><span>◆</span>福彩</span><span class="nav-item"><span>○</span>体彩</span><span class="nav-item"><span>▤</span>数据</span></nav>
         </div>
-        <div class="bottom-nav">
-          <div class="nav-item active"><div class="nav-icon-wrap"><div class="nav-icon">🏠</div></div><span>首页</span></div>
-          <div class="nav-item"><div class="nav-icon">🎰</div><span>福彩</span></div>
-          <div class="nav-item"><div class="nav-icon">⚽</div><span>体彩</span></div>
-          <div class="nav-item"><div class="nav-icon">📊</div><span>数据</span></div>
+      </article>
+
+      <article class="screen-block">
+        <h2>体彩</h2>
+        <div class="phone">
+          <div class="topbar"><span class="brand">搞钱</span><span class="status"><i class="dot"></i>已连接</span></div>
+          <div class="content">
+            <div class="card"><div class="card-head"><div><h3>足球彩票</h3><p class="sub">当前赛事 104 场 · 历史 12 场</p></div><button class="btn">▶ 生成推荐</button></div></div>
+            <div class="section-label">当前赛事</div>
+            <div class="card"><div class="match"><div class="card-head"><strong>墨西哥 vs 南非</strong><span class="pill">3 条</span></div><p class="sub">小组赛 A · 06-12 03:00</p><div class="odds"><span class="odd">主胜<br><strong>1.82</strong></span><span class="odd selected">平<br><strong>3.45</strong></span><span class="odd">客胜<br><strong>4.20</strong></span></div></div><div class="match"><div class="card-head"><strong>法国 vs 英格兰</strong><span class="pill">2 条</span></div><p class="sub">半决赛 · 07-16 03:00</p><div class="odds"><span class="odd selected">主胜<br><strong>1.95</strong></span><span class="odd">平<br><strong>3.35</strong></span><span class="odd">客胜<br><strong>3.90</strong></span></div></div></div>
+            <div class="card"><div class="card-head"><h3>历史比赛</h3><span class="link">12 场⌄</span></div></div>
+          </div>
+          <nav class="nav"><span class="nav-item"><span>⌂</span>首页</span><span class="nav-item"><span>◆</span>福彩</span><span class="nav-item active"><span>○</span>体彩</span><span class="nav-item"><span>▤</span>数据</span></nav>
         </div>
-      </div>
-      <p style="text-align: center; font-size: 12px; color: var(--text-tertiary); margin-top: 8px;">移除状态卡 · ROI 提升为视觉焦点 · 3 个清晰区块</p>
-    </div>
-  </div>
-</div>
+      </article>
 
-<!-- ==================== 福彩页：分组重构 ==================== -->
-<div class="section-block">
-  <div class="section-header">
-    <h2>福彩页 (LotteryPage) 分组重构</h2>
-    <span class="badge badge-change">11卡→3组</span>
-    <span class="badge badge-remove">移除空ChoiceButton</span>
-  </div>
-
-  <div class="phone-frame">
-    <div class="phone-status-bar"><span>9:41</span><span>📶 🔋</span></div>
-    <div class="phone-content">
-      <div class="app-header" style="display: flex; justify-content: space-between; align-items: center;">
-        <div><h1>福彩</h1><p>双色球实验模型</p></div>
-        <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--primary-container); border-radius: 999px;">
-          <div class="status-dot"></div><span style="font-size: 12px; font-weight: 600; color: var(--primary-hover);">3120 期</span>
+      <article class="screen-block">
+        <h2>数据</h2>
+        <div class="phone">
+          <div class="topbar"><span class="brand">搞钱</span><span class="status"><i class="dot"></i>已连接</span></div>
+          <div class="content">
+            <div class="card"><h3>数据同步</h3><p class="sub">双色球 500 期 · 足球 104 场</p><label class="ball-label" for="server">服务端地址</label><input class="input" id="server" value="http://192.168.1.8:8000"><div class="sync-row"><span><strong>双色球</strong><small>500 期</small></span><button class="btn">▶ 更新数据</button></div><div class="sync-row"><span><strong>体彩足球</strong><small>104 场</small></span><button class="btn">▶ 更新数据</button></div></div>
+            <div class="card"><div class="card-head"><div><h3>备份与恢复</h3><p class="sub">导出或恢复 JSON 数据。</p></div><span><button class="btn outline">导出</button> <button class="btn outline">恢复</button></span></div></div>
+          </div>
+          <nav class="nav"><span class="nav-item"><span>⌂</span>首页</span><span class="nav-item"><span>◆</span>福彩</span><span class="nav-item"><span>○</span>体彩</span><span class="nav-item active"><span>▤</span>数据</span></nav>
         </div>
-      </div>
-
-      <div class="screen-content">
-        <!-- 移除了 WelfareLotteryPage 的单按钮 ChoiceButton 行 -->
-
-        <!-- 分组 1: 推荐与生成 -->
-        <div class="group-header">推荐与生成</div>
-
-        <!-- ActionHeader -->
-        <div class="card card-raised">
-          <span class="pill pill-primary" style="margin-bottom: 8px;">研究台</span>
-          <div style="font-size: 20px; font-weight: 800; margin-top: 8px;">双色球实验模型</div>
-          <div style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">目标第 202628 期</div>
-          <button class="btn btn-primary btn-lg" style="margin-top: 12px;">▶ 生成推荐</button>
-        </div>
-
-        <!-- 推荐结果（合并 PredictionCard） -->
-        <div class="card">
-          <div class="card-header">
-            <h3>本期推荐</h3>
-            <span class="pill pill-primary">复式 6+1</span>
-          </div>
-          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <div class="ball ball-red">03</div>
-            <div class="ball ball-red">11</div>
-            <div class="ball ball-red">18</div>
-            <div class="ball ball-red">22</div>
-            <div class="ball ball-red">27</div>
-            <div class="ball ball-red">31</div>
-            <div style="width:1px;height:24px;background:var(--border-default);margin:0 4px;"></div>
-            <div class="ball ball-blue">09</div>
-          </div>
-          <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 14px; color: var(--text-secondary);">评分 <strong style="font-variant-numeric: tabular-nums;">87.32</strong> · 模型 recent_v3</span>
-            <span style="font-size: 13px; color: var(--primary); font-weight: 600;">逐球解释 ▾</span>
-          </div>
-        </div>
-
-        <!-- 号码组合（CountStepper 优化版） -->
-        <div class="card">
-          <div class="collapsible-header">
-            <h3>号码组合</h3>
-            <span style="font-size: 13px; color: var(--text-secondary);">8+3 · 56 注 ▾</span>
-          </div>
-          <div class="stepper">
-            <span class="stepper-label">红球</span>
-            <div class="stepper-controls">
-              <div class="step-btn">−</div>
-              <span class="step-value">08</span>
-              <div class="step-btn">+</div>
-            </div>
-          </div>
-          <div class="stepper">
-            <span class="stepper-label">蓝球</span>
-            <div class="stepper-controls">
-              <div class="step-btn">−</div>
-              <span class="step-value">03</span>
-              <div class="step-btn">+</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 分组 2: 数据分析 -->
-        <div class="group-header">数据分析</div>
-
-        <!-- 分析卡 -->
-        <div class="card">
-          <div class="card-header"><h3>数据分析</h3></div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
-            <div class="metric-card"><div class="metric-label">样本期数</div><div class="metric-value">3,120</div></div>
-            <div class="metric-card"><div class="metric-label">组合注数</div><div class="metric-value">56</div></div>
-          </div>
-          <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600;">红球热号</div>
-          <div style="display: flex; gap: 4px; margin-bottom: 12px;">
-            <div class="ball-sm red">03</div><div class="ball-sm red">11</div><div class="ball-sm red">18</div><div class="ball-sm red">22</div><div class="ball-sm red">27</div><div class="ball-sm red">31</div>
-          </div>
-          <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600;">红球遗漏</div>
-          <div style="display: flex; gap: 4px;">
-            <div class="ball-sm red">05</div><div class="ball-sm red">09</div><div class="ball-sm red">14</div><div class="ball-sm red">26</div>
-          </div>
-        </div>
-
-        <!-- 号码榜单 -->
-        <div class="card">
-          <div class="card-header"><h3>号码榜单</h3></div>
-          <div class="tab-bar">
-            <button class="tab-btn active">红球榜</button>
-            <button class="tab-btn">蓝球榜</button>
-          </div>
-          <div class="tab-bar">
-            <button class="tab-btn active">综合</button>
-            <button class="tab-btn">近期</button>
-            <button class="tab-btn">遗漏</button>
-          </div>
-          <div class="number-selector">
-            <div class="num-btn selected">03<span class="rank">#1</span></div>
-            <div class="num-btn">09<span class="rank">#2</span></div>
-            <div class="num-btn">11<span class="rank">#3</span></div>
-            <div class="num-btn">18<span class="rank">#4</span></div>
-            <div class="num-btn">22<span class="rank">#5</span></div>
-          </div>
-          <div style="background: var(--primary-container); border-radius: 12px; padding: 12px;">
-            <div style="font-size: 15px; font-weight: 700; color: var(--primary-hover);">红球 03 · 综合 #1</div>
-            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">综合 92.34 · 近期 94.56 · 遗漏 90.23</div>
-          </div>
-        </div>
-
-        <!-- 走势可视化 -->
-        <div class="card">
-          <div class="collapsible-header">
-            <h3>走势可视化</h3>
-            <span style="font-size: 13px; color: var(--text-secondary);">展开 ▾</span>
-          </div>
-          <div class="card-subtitle">最近 30 期红球冷热分布与遗漏走势</div>
-          <div class="heatmap">
-            <div class="heat-cell heat-0">01</div><div class="heat-cell heat-2">02</div><div class="heat-cell heat-4">03</div><div class="heat-cell heat-1">04</div><div class="heat-cell heat-3">05</div><div class="heat-cell heat-2">06</div><div class="heat-cell heat-1">07</div><div class="heat-cell heat-3">08</div><div class="heat-cell heat-5">09</div><div class="heat-cell heat-2">10</div><div class="heat-cell heat-4">11</div>
-            <div class="heat-cell heat-1">12</div><div class="heat-cell heat-3">13</div><div class="heat-cell heat-2">14</div><div class="heat-cell heat-0">15</div><div class="heat-cell heat-1">16</div><div class="heat-cell heat-4">17</div><div class="heat-cell heat-5">18</div><div class="heat-cell heat-2">19</div><div class="heat-cell heat-3">20</div><div class="heat-cell heat-1">21</div><div class="heat-cell heat-4">22</div>
-            <div class="heat-cell heat-2">23</div><div class="heat-cell heat-0">24</div><div class="heat-cell heat-3">25</div><div class="heat-cell heat-1">26</div><div class="heat-cell heat-5">27</div><div class="heat-cell heat-2">28</div><div class="heat-cell heat-3">29</div><div class="heat-cell heat-1">30</div><div class="heat-cell heat-4">31</div><div class="heat-cell heat-2">32</div><div class="heat-cell heat-3">33</div>
-          </div>
-          <div class="chart-container">
-            <svg class="chart-svg" viewBox="0 0 320 100" preserveAspectRatio="none">
-              <line x1="0" y1="25" x2="320" y2="25" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="2,2"/>
-              <line x1="0" y1="50" x2="320" y2="50" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="2,2"/>
-              <line x1="0" y1="75" x2="320" y2="75" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="2,2"/>
-              <line x1="0" y1="100" x2="320" y2="100" stroke="#CBD5E1" stroke-width="2"/>
-              <path d="M 0,90 L 40,60 L 80,90 L 120,30 L 160,90 L 200,20 L 240,90 L 280,50 L 320,40" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="200" cy="20" r="4" fill="#10B981" stroke="white" stroke-width="2"/>
-            </svg>
-          </div>
-        </div>
-
-        <!-- 分组 3: 历史记录 -->
-        <div class="group-header">历史记录</div>
-
-        <!-- 结算概览 -->
-        <div class="card">
-          <div class="collapsible-header">
-            <h3>真实推荐结算</h3>
-            <span style="font-size: 13px; color: var(--text-secondary);">+12.40% ROI ▾</span>
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <div class="metric-card"><div class="metric-label">已结算</div><div class="metric-value">8 期</div></div>
-            <div class="metric-card"><div class="metric-label">累计投入</div><div class="metric-value">¥1,280</div></div>
-          </div>
-        </div>
-
-        <!-- 历史开奖 - 带"查看全部" -->
-        <div class="card">
-          <div class="card-header">
-            <h3>历史开奖</h3>
-            <span style="font-size: 12px; color: var(--primary); font-weight: 600; cursor: pointer;">查看全部 3120 期 →</span>
-          </div>
-          <div class="draw-item">
-            <div class="draw-issue">202627<br><span style="color: var(--text-tertiary); font-size: 10px;">07-10</span></div>
-            <div class="draw-balls">
-              <div class="ball-sm red">07</div><div class="ball-sm red">15</div><div class="ball-sm red">19</div><div class="ball-sm red">24</div><div class="ball-sm red">28</div><div class="ball-sm red">32</div>
-              <div style="width:1px;height:20px;background:var(--border-default);margin:0 4px;"></div>
-              <div class="ball-sm blue">11</div>
-            </div>
-          </div>
-          <div class="draw-item">
-            <div class="draw-issue">202626<br><span style="color: var(--text-tertiary); font-size: 10px;">07-08</span></div>
-            <div class="draw-balls">
-              <div class="ball-sm red">02</div><div class="ball-sm red">08</div><div class="ball-sm red">13</div><div class="ball-sm red">21</div><div class="ball-sm red">29</div><div class="ball-sm red">33</div>
-              <div style="width:1px;height:20px;background:var(--border-default);margin:0 4px;"></div>
-              <div class="ball-sm blue">06</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="bottom-nav">
-      <div class="nav-item"><div class="nav-icon">🏠</div><span>首页</span></div>
-      <div class="nav-item active"><div class="nav-icon-wrap"><div class="nav-icon">🎰</div></div><span>福彩</span></div>
-      <div class="nav-item"><div class="nav-icon">⚽</div><span>体彩</span></div>
-      <div class="nav-item"><div class="nav-icon">📊</div><span>数据</span></div>
-    </div>
-  </div>
-</div>
-
-<!-- ==================== 体彩页：扁平化 ==================== -->
-<div class="section-block">
-  <div class="section-header">
-    <h2>体彩页 (SportsLotteryPage) 扁平化</h2>
-    <span class="badge badge-remove">移除空ChoiceButton</span>
-    <span class="badge badge-change">取消嵌套展开</span>
-  </div>
-
-  <div class="phone-frame">
-    <div class="phone-status-bar"><span>9:41</span><span>📶 🔋</span></div>
-    <div class="phone-content">
-      <div class="app-header"><h1>体彩</h1><p>足球彩票 · 2026 世界杯</p></div>
-      <div class="screen-content">
-        <!-- ActionHeader -->
-        <div class="card card-raised">
-          <span class="pill pill-primary" style="margin-bottom: 8px;">研究台</span>
-          <div style="font-size: 20px; font-weight: 800; margin-top: 8px;">足球彩票</div>
-          <div style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">当前 3 场 · 历史 12 场</div>
-          <button class="btn btn-primary btn-lg" style="margin-top: 12px;">▶ 生成推荐</button>
-        </div>
-
-        <!-- 移除了单按钮 ChoiceButton 行 -->
-
-        <!-- 赛事卡（扁平化：直接显示赔率+推荐摘要，不再嵌套展开） -->
-        <div class="group-header">当前赛事</div>
-
-        <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-            <div>
-              <div class="match-teams">巴西 vs 阿根廷</div>
-              <div class="match-meta">半决赛 · 07-15 03:00 · 让球 0</div>
-              <div class="match-meta">马拉卡纳球场</div>
-            </div>
-            <span class="pill pill-error">3 条推荐</span>
-          </div>
-          <div style="display: flex; gap: 6px; margin-bottom: 12px;">
-            <span class="pill pill-primary">胜平负</span>
-            <span class="pill pill-neutral">让球</span>
-            <span class="pill pill-neutral">比分</span>
-          </div>
-          <!-- 赔率三栏（直接展示，不需展开） -->
-          <div class="odds-row">
-            <div class="odd-item"><div class="odd-label">主胜</div><div class="odd-value">2.15</div></div>
-            <div class="odd-item highlighted"><div class="odd-label">平</div><div class="odd-value">3.40</div></div>
-            <div class="odd-item"><div class="odd-label">客胜</div><div class="odd-value">3.05</div></div>
-          </div>
-          <!-- 推荐摘要（直接展示，不再嵌套展开） -->
-          <div style="margin-top: 12px; padding: 12px; background: var(--primary-container); border-radius: 12px;">
-            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-              <span class="pill pill-info">胜平负</span>
-              <span class="pill pill-primary">平</span>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-              <div><span style="font-size: 11px; color: var(--text-secondary);">置信分</span> <strong style="font-variant-numeric: tabular-nums;">72.5%</strong></div>
-              <div><span style="font-size: 11px; color: var(--text-secondary);">理论价值</span> <strong style="color: var(--success); font-variant-numeric: tabular-nums;">+6.1%</strong></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-            <div>
-              <div class="match-teams">法国 vs 英格兰</div>
-              <div class="match-meta">半决赛 · 07-16 03:00 · 让球 0</div>
-            </div>
-            <span class="pill pill-error">2 条推荐</span>
-          </div>
-          <div class="odds-row">
-            <div class="odd-item highlighted"><div class="odd-label">主胜</div><div class="odd-value">1.85</div></div>
-            <div class="odd-item"><div class="odd-label">平</div><div class="odd-value">3.60</div></div>
-            <div class="odd-item"><div class="odd-label">客胜</div><div class="odd-value">4.20</div></div>
-          </div>
-        </div>
-
-        <div class="group-header">历史比赛</div>
-        <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h3 style="font-size: 16px; font-weight: 700;">已结束 12 场</h3>
-            <span style="font-size: 12px; color: var(--primary); font-weight: 600; cursor: pointer;">展开全部 ▾</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-subtle);">
-            <div style="flex: 1;">
-              <div style="font-size: 14px; font-weight: 600;">法国 vs 摩洛哥</div>
-              <div style="font-size: 12px; color: var(--text-secondary);">1/4 决赛 · 2 条推荐</div>
-            </div>
-            <span class="pill pill-primary">命中</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0;">
-            <div style="flex: 1;">
-              <div style="font-size: 14px; font-weight: 600;">英格兰 vs 葡萄牙</div>
-              <div style="font-size: 12px; color: var(--text-secondary);">1/8 决赛 · 3 条推荐</div>
-            </div>
-            <span class="pill pill-neutral">未中</span>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="bottom-nav">
-      <div class="nav-item"><div class="nav-icon">🏠</div><span>首页</span></div>
-      <div class="nav-item"><div class="nav-icon">🎰</div><span>福彩</span></div>
-      <div class="nav-item active"><div class="nav-icon-wrap"><div class="nav-icon">⚽</div></div><span>体彩</span></div>
-      <div class="nav-item"><div class="nav-icon">📊</div><span>数据</span></div>
-    </div>
-  </div>
-</div>
-
-<!-- ==================== 数据页：合并卡片 ==================== -->
-<div class="section-block">
-  <div class="section-header">
-    <h2>数据页 (DataPage) 合并优化</h2>
-    <span class="badge badge-change">3卡→2卡</span>
-    <span class="badge badge-new">连接状态</span>
-  </div>
-
-  <div class="phone-frame">
-    <div class="phone-status-bar"><span>9:41</span><span>📶 🔋</span></div>
-    <div class="phone-content">
-      <div class="app-header"><h1>数据</h1><p>服务端配置与备份</p></div>
-      <div class="screen-content">
-        <!-- 移除状态卡，合并到配置卡内 -->
-
-        <!-- 合并的数据同步卡 -->
-        <div class="card">
-          <div class="card-header"><h3>数据同步</h3></div>
-
-          <!-- 连接状态 -->
-          <div class="connection-status" style="margin-bottom: 16px;">
-            <div class="status-dot"></div>
-            <span style="font-size: 13px; font-weight: 600; color: var(--primary-hover);">已连接</span>
-            <span style="font-size: 12px; color: var(--text-secondary);">· 双色球 3120 期 · 足球 15 场</span>
-          </div>
-
-          <!-- 服务端地址 -->
-          <label class="input-label">服务端地址</label>
-          <input class="input-field" value="http://192.168.1.8:8000" />
-
-          <!-- 双色球 section -->
-          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-subtle);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span style="font-size: 14px; font-weight: 600;">双色球</span>
-              <span style="font-size: 12px; color: var(--text-tertiary);">3120 期 · 07-10 更新</span>
-            </div>
-            <button class="btn btn-primary btn-lg">▶ 更新双色球数据</button>
-          </div>
-
-          <!-- 体彩 section -->
-          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-subtle);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span style="font-size: 14px; font-weight: 600;">体彩足球</span>
-              <span style="font-size: 12px; color: var(--text-tertiary);">15 场 · 07-12 更新</span>
-            </div>
-            <button class="btn btn-primary btn-lg btn-loading"><span class="spinner"></span> 更新中...</button>
-          </div>
-        </div>
-
-        <!-- 备份与恢复（独立卡片） -->
-        <div class="card">
-          <div class="card-header"><h3>备份与恢复</h3></div>
-          <div class="card-subtitle">导出当前所有数据到 JSON 文件，或从备份恢复。</div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <button class="btn btn-outline btn-md">💾 导出</button>
-            <button class="btn btn-outline btn-md">☁️ 恢复</button>
-          </div>
-        </div>
-
-        <!-- 空状态示例 -->
-        <div class="card">
-          <div class="empty-state">
-            <div class="empty-icon">📭</div>
-            <div class="empty-title">暂无足球赛事</div>
-            <div class="empty-desc">配置服务端地址后点击更新；已结束场次会进入历史比赛。</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="bottom-nav">
-      <div class="nav-item"><div class="nav-icon">🏠</div><span>首页</span></div>
-      <div class="nav-item"><div class="nav-icon">🎰</div><span>福彩</span></div>
-      <div class="nav-item"><div class="nav-icon">⚽</div><span>体彩</span></div>
-      <div class="nav-item active"><div class="nav-icon-wrap"><div class="nav-icon">📊</div></div><span>数据</span></div>
-    </div>
-  </div>
-</div>
-
-<!-- ==================== 按钮规范对比 ==================== -->
-<div class="section-block">
-  <div class="section-header">
-    <h2>按钮规范统一</h2>
-    <span class="badge badge-change">3级尺寸</span>
-  </div>
-
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-    <div class="card">
-      <h3 style="font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 16px;">改造前 · 混乱</h3>
-      <div style="display: flex; flex-direction: column; gap: 12px;">
-        <div style="font-size: 12px; color: var(--text-tertiary);">Button 默认 36dp，无尺寸区分</div>
-        <button style="height: 36px; padding: 0 16px; background: #0F6B55; color: white; border: none; border-radius: 8px; font-size: 14px;">▶ 生成推荐</button>
-        <button style="height: 36px; padding: 0 16px; background: white; color: #26323A; border: 1px solid #DDE4EA; border-radius: 8px; font-size: 14px;">展开说明</button>
-        <button style="height: 36px; padding: 0 16px; background: white; color: #26323A; border: 1px solid #DDE4EA; border-radius: 8px; font-size: 14px;">收起</button>
-        <button style="height: 36px; padding: 0 16px; background: white; color: #26323A; border: 1px solid #DDE4EA; border-radius: 8px; font-size: 14px;">展开</button>
-        <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 8px;">CountStepper 用 Text("-") Text("+")</div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <button style="height: 36px; width: 36px; background: #0F6B55; color: white; border: none; border-radius: 8px;">-</button>
-          <span style="font-weight: 700;">08</span>
-          <button style="height: 36px; width: 36px; background: #0F6B55; color: white; border: none; border-radius: 8px;">+</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3 style="font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 16px;">改造后 · 3 级规范</h3>
-      <div style="display: flex; flex-direction: column; gap: 12px;">
-        <div style="font-size: 12px; color: var(--text-tertiary);">btn-lg 52dp · 全宽主操作</div>
-        <button class="btn btn-primary btn-lg">▶ 更新数据</button>
-        <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">btn-md 44dp · 常规操作</div>
-        <button class="btn btn-primary btn-md">▶ 生成推荐</button>
-        <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">展开/收起 → 图标箭头（非按钮）</div>
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
-          <span style="font-weight: 600;">走势可视化</span>
-          <span style="color: var(--text-secondary); font-size: 13px;">展开 ▾</span>
-        </div>
-        <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">CountStepper → 44dp + Material Icons</div>
-        <div class="stepper">
-          <span class="stepper-label">红球</span>
-          <div class="stepper-controls">
-            <div class="step-btn">−</div>
-            <span class="step-value">08</span>
-            <div class="step-btn">+</div>
-          </div>
-        </div>
-        <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">加载状态 · spinner + 禁用</div>
-        <button class="btn btn-primary btn-lg btn-loading"><span class="spinner"></span> 更新中...</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-</div>
+      </article>
+    </section>
+  </main>
 </body>
 </html>

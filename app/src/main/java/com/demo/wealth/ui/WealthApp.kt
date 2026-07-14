@@ -1,6 +1,5 @@
 package com.demo.wealth.ui
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -23,7 +22,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +32,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.demo.wealth.ui.components.StatusIndicator
 import com.demo.wealth.ui.components.connectionStatus
 import com.demo.wealth.ui.screens.DataScreen
@@ -62,28 +61,11 @@ fun WealthApp(viewModel: WealthViewModel = viewModel()) {
     }
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val snackbar = remember { SnackbarHostState() }
-    val draws by viewModel.lotteryDraws.collectAsState()
-    val predictions by viewModel.predictions.collectAsState()
-    val settlements by viewModel.lotterySettlements.collectAsState()
-    val footballMatches by viewModel.footballMatches.collectAsState()
-    val footballRecommendations by viewModel.footballRecommendations.collectAsState()
-    val footballRecommendationHistory by viewModel.footballRecommendationHistory.collectAsState()
-    val isServerConnected by viewModel.isServerConnected.collectAsState()
-    val lotteryServerUrl by viewModel.lotteryServerUrl.collectAsState()
-    val compoundRedCount by viewModel.compoundRedCount.collectAsState()
-    val compoundBlueCount by viewModel.compoundBlueCount.collectAsState()
-    val recentWindow by viewModel.recentWindow.collectAsState()
-    val budgetBets by viewModel.budgetBets.collectAsState()
-    val modelVersion by viewModel.modelVersion.collectAsState()
-    val researchReport by viewModel.researchReport.collectAsState()
-    val isLotteryUpdating by viewModel.isLotteryUpdating.collectAsState()
-    val isFootballUpdating by viewModel.isFootballUpdating.collectAsState()
-    val isLotteryGenerating by viewModel.isLotteryGenerating.collectAsState()
-    val isFootballGenerating by viewModel.isFootballGenerating.collectAsState()
-    val lotteryUpdateError by viewModel.lotteryUpdateError.collectAsState()
-    val footballUpdateError by viewModel.footballUpdateError.collectAsState()
-    val lotteryGenerationError by viewModel.lotteryGenerationError.collectAsState()
-    val footballGenerationError by viewModel.footballGenerationError.collectAsState()
+    val isServerConnected by viewModel.isServerConnected.collectAsStateWithLifecycle()
+    val isLotteryUpdating by viewModel.isLotteryUpdating.collectAsStateWithLifecycle()
+    val isFootballUpdating by viewModel.isFootballUpdating.collectAsStateWithLifecycle()
+    val isLotteryGenerating by viewModel.isLotteryGenerating.collectAsStateWithLifecycle()
+    val isFootballGenerating by viewModel.isFootballGenerating.collectAsStateWithLifecycle()
     val status = connectionStatus(
         isSyncing = isLotteryUpdating || isFootballUpdating || isLotteryGenerating || isFootballGenerating,
         isConnected = isServerConnected
@@ -98,10 +80,7 @@ fun WealthApp(viewModel: WealthViewModel = viewModel()) {
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("搞钱", fontWeight = FontWeight.Bold, color = TextPrimary)
-                        Text("福彩与体彩实验台", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-                    }
+                    Text("搞钱", fontWeight = FontWeight.Bold, color = TextPrimary)
                 },
                 actions = { StatusIndicator(status, modifier = Modifier.padding(end = SpacingLg)) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -129,24 +108,63 @@ fun WealthApp(viewModel: WealthViewModel = viewModel()) {
     ) { padding ->
         Surface(Modifier.fillMaxSize().padding(padding), color = MaterialTheme.colorScheme.background) {
             when (selected) {
-                0 -> HomeScreen(predictions, settlements, footballMatches)
-                1 -> LotteryScreen(
-                    draws, predictions, settlements, researchReport, compoundRedCount, compoundBlueCount,
-                    recentWindow, budgetBets, modelVersion, viewModel::setCompoundPlan,
-                    viewModel::setRecentWindow, viewModel::setBudgetBets, viewModel::setModelVersion,
-                    viewModel::generateLottery, isLotteryGenerating, lotteryGenerationError
-                )
-                2 -> SportsScreen(
-                    footballMatches, footballRecommendations, footballRecommendationHistory,
-                    viewModel::generateFootballRecommendations, isFootballGenerating, footballGenerationError
-                )
-                3 -> DataScreen(
-                    lotteryServerUrl, viewModel::setLotteryServerUrl, viewModel::updateLotteryFromServer,
-                    viewModel::updateFootballFromServer, viewModel::exportBackup, viewModel::restoreBackup,
-                    draws.size, footballMatches.size, isLotteryUpdating, isFootballUpdating,
-                    isServerConnected, lotteryUpdateError, footballUpdateError
-                )
+                0 -> HomeRoute(viewModel)
+                1 -> LotteryRoute(viewModel)
+                2 -> SportsRoute(viewModel)
+                3 -> DataRoute(viewModel)
             }
         }
     }
+}
+
+@Composable
+private fun HomeRoute(viewModel: WealthViewModel) {
+    val predictions by viewModel.predictions.collectAsStateWithLifecycle()
+    val settlements by viewModel.lotterySettlements.collectAsStateWithLifecycle()
+    val footballMatches by viewModel.footballMatches.collectAsStateWithLifecycle()
+    val draws by viewModel.lotteryDraws.collectAsStateWithLifecycle()
+    HomeScreen(predictions, settlements, footballMatches, draws)
+}
+
+@Composable
+private fun LotteryRoute(viewModel: WealthViewModel) {
+    val draws by viewModel.lotteryDraws.collectAsStateWithLifecycle()
+    val predictions by viewModel.predictions.collectAsStateWithLifecycle()
+    val settlements by viewModel.lotterySettlements.collectAsStateWithLifecycle()
+    val report by viewModel.researchReport.collectAsStateWithLifecycle()
+    val redCount by viewModel.compoundRedCount.collectAsStateWithLifecycle()
+    val blueCount by viewModel.compoundBlueCount.collectAsStateWithLifecycle()
+    val generating by viewModel.isLotteryGenerating.collectAsStateWithLifecycle()
+    val error by viewModel.lotteryGenerationError.collectAsStateWithLifecycle()
+    LotteryScreen(
+        draws, predictions, settlements, report, redCount, blueCount,
+        viewModel::setCompoundPlan, viewModel::generateLottery, generating, error
+    )
+}
+
+@Composable
+private fun SportsRoute(viewModel: WealthViewModel) {
+    val matches by viewModel.footballMatches.collectAsStateWithLifecycle()
+    val recommendations by viewModel.footballRecommendations.collectAsStateWithLifecycle()
+    val history by viewModel.footballRecommendationHistory.collectAsStateWithLifecycle()
+    val generating by viewModel.isFootballGenerating.collectAsStateWithLifecycle()
+    val error by viewModel.footballGenerationError.collectAsStateWithLifecycle()
+    SportsScreen(matches, recommendations, history, viewModel::generateFootballRecommendations, generating, error)
+}
+
+@Composable
+private fun DataRoute(viewModel: WealthViewModel) {
+    val serverUrl by viewModel.lotteryServerUrl.collectAsStateWithLifecycle()
+    val draws by viewModel.lotteryDraws.collectAsStateWithLifecycle()
+    val matches by viewModel.footballMatches.collectAsStateWithLifecycle()
+    val lotteryUpdating by viewModel.isLotteryUpdating.collectAsStateWithLifecycle()
+    val footballUpdating by viewModel.isFootballUpdating.collectAsStateWithLifecycle()
+    val connected by viewModel.isServerConnected.collectAsStateWithLifecycle()
+    val lotteryError by viewModel.lotteryUpdateError.collectAsStateWithLifecycle()
+    val footballError by viewModel.footballUpdateError.collectAsStateWithLifecycle()
+    DataScreen(
+        serverUrl, viewModel::setLotteryServerUrl, viewModel::updateLotteryFromServer,
+        viewModel::updateFootballFromServer, viewModel::exportBackup, viewModel::restoreBackup,
+        draws.size, matches.size, lotteryUpdating, footballUpdating, connected, lotteryError, footballError
+    )
 }

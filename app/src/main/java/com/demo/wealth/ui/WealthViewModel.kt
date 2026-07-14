@@ -47,36 +47,10 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
     val lotteryServerUrl = MutableStateFlow(prefs.getString("lottery_server_url", "") ?: "")
     val compoundRedCount = MutableStateFlow(prefs.getInt("compound_red_count", 6))
     val compoundBlueCount = MutableStateFlow(prefs.getInt("compound_blue_count", 3))
-    private val defaultRecentWindow = 240
-    private val storedRecentWindow = prefs.getInt("lottery_recent_window", defaultRecentWindow)
-    private val hasStoredRecentWindow = prefs.contains("lottery_recent_window")
-    val budgetBets = MutableStateFlow(prefs.getInt("lottery_budget_bets", 252))
-    private val defaultLotteryModelVersion = "auto"
-    private val storedLotteryModelVersion = prefs.getString("lottery_model_version", null)
-    private val shouldMigrateDefaultModel =
-        !prefs.getBoolean("lottery_single_group_defaults_migrated", false) &&
-            (storedLotteryModelVersion.isNullOrBlank() || storedLotteryModelVersion in setOf("balanced_v2", "hit_rate_v4"))
-    private val shouldMigrateRecentWindow =
-        !prefs.getBoolean("lottery_single_group_defaults_migrated", false) &&
-            (!hasStoredRecentWindow || storedRecentWindow == 120)
-    val recentWindow = MutableStateFlow(if (shouldMigrateRecentWindow) defaultRecentWindow else storedRecentWindow)
-    val modelVersion = MutableStateFlow(
-        if (shouldMigrateDefaultModel) defaultLotteryModelVersion else storedLotteryModelVersion ?: defaultLotteryModelVersion
-    )
     val researchReport: StateFlow<LotteryResearchReport?> =
         repository.lotteryResearchReport.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     init {
-        if (shouldMigrateDefaultModel || shouldMigrateRecentWindow) {
-            val editor = prefs.edit()
-            if (shouldMigrateDefaultModel) {
-                editor.putString("lottery_model_version", defaultLotteryModelVersion)
-            }
-            if (shouldMigrateRecentWindow) {
-                editor.putInt("lottery_recent_window", recentWindow.value)
-            }
-            editor.putBoolean("lottery_single_group_defaults_migrated", true).apply()
-        }
         viewModelScope.launch {
             repository.refreshLotterySettlements()
         }
@@ -127,7 +101,7 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 val count = repository.generateFootballRecommendationsFromServer(lotteryServerUrl.value)
                 isServerConnected.value = true
-                notify("服务端已生成 $count 条足球彩票实验推荐")
+                notify("服务端已生成 $count 条足球彩票推荐")
             } catch (error: Throwable) {
                 if (error is CancellationException) throw error
                 footballGenerationError.value = friendlyError(error)
@@ -148,10 +122,7 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
                 val response = repository.generateLotteryPredictionsFromServer(
                     baseUrl = lotteryServerUrl.value,
                     compoundRedCount = redCount,
-                    compoundBlueCount = blueCount,
-                    modelVersion = modelVersion.value,
-                    recentWindow = recentWindow.value,
-                    budgetBets = budgetBets.value
+                    compoundBlueCount = blueCount
                 )
                 val predictions = response.predictions
                 val target = predictions.firstOrNull()?.targetIssue ?: "下一"
@@ -188,23 +159,6 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
             .putInt("compound_red_count", red)
             .putInt("compound_blue_count", blue)
             .apply()
-    }
-
-    fun setRecentWindow(value: Int) {
-        val normalized = value.coerceIn(30, 500)
-        recentWindow.value = normalized
-        prefs.edit().putInt("lottery_recent_window", normalized).apply()
-    }
-
-    fun setBudgetBets(value: Int) {
-        val normalized = value.coerceIn(1, 5000)
-        budgetBets.value = normalized
-        prefs.edit().putInt("lottery_budget_bets", normalized).apply()
-    }
-
-    fun setModelVersion(value: String) {
-        modelVersion.value = value
-        prefs.edit().putString("lottery_model_version", value).apply()
     }
 
     fun exportBackup(uri: Uri?) {

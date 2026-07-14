@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 // ===== 圆角阶梯 =====
 val ShapeSm = RoundedCornerShape(8.dp)    // 小圆角（Pill 内部、小元素）
 val ShapeMd = RoundedCornerShape(12.dp)   // 中圆角（按钮、输入框、指标卡）
-val ShapeLg = RoundedCornerShape(16.dp)   // 大圆角（卡片容器 Panel）
+val ShapeLg = RoundedCornerShape(12.dp)   // 卡片统一 12dp
 val ShapeXl = RoundedCornerShape(20.dp)   // 超大圆角（导航激活态背景）
 val ShapeFull = RoundedCornerShape(999.dp) // 全圆角（Pill、球体）
 

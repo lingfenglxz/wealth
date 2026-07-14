@@ -1,7 +1,6 @@
 package com.demo.wealth.ui.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,8 +13,6 @@ import androidx.compose.ui.unit.dp
 import com.demo.wealth.ui.theme.BorderSubtle
 import com.demo.wealth.ui.theme.CardPadding
 import com.demo.wealth.ui.theme.CardShape
-import com.demo.wealth.ui.theme.Elevation1
-import com.demo.wealth.ui.theme.Elevation2
 import com.demo.wealth.ui.theme.Surface
 
 /**
@@ -31,16 +28,13 @@ import com.demo.wealth.ui.theme.Surface
  */
 @Composable
 fun Panel(
-    raised: Boolean = false,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
         shape = CardShape,
         colors = CardDefaults.cardColors(containerColor = Surface),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (raised) Elevation2.dp else Elevation1.dp
-        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, BorderSubtle),
         modifier = modifier.fillMaxWidth()
     ) {

@@ -47,7 +47,6 @@ import com.demo.wealth.ui.nextVisibleCount
 import com.demo.wealth.ui.parseHadOdds
 import com.demo.wealth.ui.signedPercent
 import com.demo.wealth.ui.theme.ErrorContainer
-import com.demo.wealth.ui.theme.ButtonHeightLarge
 import com.demo.wealth.ui.theme.InfoContainer
 import com.demo.wealth.ui.theme.OnErrorContainer
 import com.demo.wealth.ui.theme.OnInfoContainer
@@ -92,36 +91,30 @@ fun SportsScreen(
     ) {
         // ActionHeader
         item {
-            Panel(raised = true) {
-                MetaPill("研究台", PrimaryContainer, PrimaryHover)
-                Spacer(Modifier.height(SpacingSm))
-                Text(
-                    "足球彩票",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+            Panel {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("足球彩票", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Button(onClick = onGenerate, enabled = !isGenerating) {
+                        if (isGenerating) {
+                            androidx.compose.material3.CircularProgressIndicator(
+                                modifier = Modifier.height(18.dp).width(18.dp), strokeWidth = 2.dp
+                            )
+                        } else {
+                            androidx.compose.material3.Icon(Icons.Default.PlayArrow, contentDescription = null)
+                        }
+                        Spacer(Modifier.width(SpacingSm))
+                        Text(if (isGenerating) "生成中" else "生成推荐")
+                    }
+                }
                 Text(
                     "当前赛事 ${currentMatches.size} 场 · 历史 ${historicalMatches.size} 场",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
-                Spacer(Modifier.height(SpacingMd))
-                Button(
-                    onClick = onGenerate,
-                    enabled = !isGenerating,
-                    modifier = Modifier.fillMaxWidth().height(ButtonHeightLarge)
-                ) {
-                    if (isGenerating) {
-                        androidx.compose.material3.CircularProgressIndicator(
-                            modifier = Modifier.height(18.dp).width(18.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        androidx.compose.material3.Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    }
-                    Spacer(Modifier.width(SpacingSm))
-                    Text(if (isGenerating) "生成中..." else "生成推荐")
-                }
             }
         }
 

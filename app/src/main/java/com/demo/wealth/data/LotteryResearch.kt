@@ -4,8 +4,6 @@ data class LotteryResearchReport(
     val modelVersion: String,
     val recentWindow: Int,
     val backtest: LotteryBacktestReport?,
-    val modelComparison: List<LotteryModelComparison>,
-    val budgetPlan: LotteryBudgetPlan?,
     val narrative: List<String>,
     val redRankings: List<LotteryNumberRanking>,
     val blueRankings: List<LotteryNumberRanking>
@@ -19,24 +17,6 @@ data class LotteryBacktestReport(
     val prizeHitRate: Double = 0.0,
     val averageBetCount: Double = 0.0,
     val averageDistinctBlueCount: Double = 0.0
-)
-
-data class LotteryModelComparison(
-    val version: String,
-    val averageBestRedHits: Double,
-    val blueHitRate: Double,
-    val atLeastThreeRedRate: Double,
-    val prizeHitRate: Double = 0.0,
-    val averageBetCount: Double = 0.0,
-    val averageDistinctBlueCount: Double = 0.0
-)
-
-data class LotteryBudgetPlan(
-    val budgetBets: Int,
-    val redCount: Int,
-    val blueCount: Int,
-    val betCount: Long,
-    val reason: String
 )
 
 data class LotteryRecommendationResponse(

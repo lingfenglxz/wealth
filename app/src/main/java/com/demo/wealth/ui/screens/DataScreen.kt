@@ -38,7 +38,6 @@ import com.demo.wealth.ui.components.ErrorState
 import com.demo.wealth.ui.components.StatusIndicator
 import com.demo.wealth.ui.components.connectionStatus
 import com.demo.wealth.ui.theme.ButtonShape
-import com.demo.wealth.ui.theme.ButtonHeightLarge
 import com.demo.wealth.ui.theme.ButtonHeightMedium
 import com.demo.wealth.ui.theme.SpacingLg
 import com.demo.wealth.ui.theme.SpacingMd
@@ -198,36 +197,28 @@ private fun DataSyncCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("双色球", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-            Text(
-                "$lotteryDrawsCount 期",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary
-            )
-        }
-        Spacer(Modifier.height(SpacingSm))
-        // 全宽 btn-lg 更新按钮
-        Button(
-            onClick = onLotteryServerUpdate,
-            shape = ButtonShape,
-            enabled = !isLotteryUpdating,
-            colors = ButtonDefaults.buttonColors(
-                disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-            ),
-            modifier = Modifier.fillMaxWidth().height(ButtonHeightLarge)
-        ) {
-            if (isLotteryUpdating) {
-                CircularProgressIndicator(
-                    modifier = Modifier.height(18.dp).width(18.dp),
-                    strokeWidth = 2.dp,
-                    color = androidx.compose.ui.graphics.Color.White
+            Column {
+                Text("双色球", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                Text("$lotteryDrawsCount 期", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            }
+            Button(
+                onClick = onLotteryServerUpdate,
+                shape = ButtonShape,
+                enabled = !isLotteryUpdating,
+                colors = ButtonDefaults.buttonColors(
+                    disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                 )
+            ) {
+                if (isLotteryUpdating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.height(18.dp).width(18.dp), strokeWidth = 2.dp,
+                        color = androidx.compose.ui.graphics.Color.White
+                    )
+                } else {
+                    Icon(Icons.Default.PlayArrow, contentDescription = "更新双色球数据")
+                }
                 Spacer(Modifier.width(SpacingSm))
-                Text("更新中...")
-            } else {
-                Icon(Icons.Default.PlayArrow, contentDescription = "更新双色球数据")
-                Spacer(Modifier.width(SpacingSm))
-                Text("更新双色球数据")
+                Text(if (isLotteryUpdating) "更新中" else "更新数据")
             }
         }
         lotteryUpdateError?.let { ErrorState(it, onRetry = onLotteryServerUpdate) }
@@ -241,35 +232,28 @@ private fun DataSyncCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("体彩足球", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-            Text(
-                "$footballMatchesCount 场",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary
-            )
-        }
-        Spacer(Modifier.height(SpacingSm))
-        Button(
-            onClick = onFootballServerUpdate,
-            shape = ButtonShape,
-            enabled = !isFootballUpdating,
-            colors = ButtonDefaults.buttonColors(
-                disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-            ),
-            modifier = Modifier.fillMaxWidth().height(ButtonHeightLarge)
-        ) {
-            if (isFootballUpdating) {
-                CircularProgressIndicator(
-                    modifier = Modifier.height(18.dp).width(18.dp),
-                    strokeWidth = 2.dp,
-                    color = androidx.compose.ui.graphics.Color.White
+            Column {
+                Text("体彩足球", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                Text("$footballMatchesCount 场", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            }
+            Button(
+                onClick = onFootballServerUpdate,
+                shape = ButtonShape,
+                enabled = !isFootballUpdating,
+                colors = ButtonDefaults.buttonColors(
+                    disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                 )
+            ) {
+                if (isFootballUpdating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.height(18.dp).width(18.dp), strokeWidth = 2.dp,
+                        color = androidx.compose.ui.graphics.Color.White
+                    )
+                } else {
+                    Icon(Icons.Default.PlayArrow, contentDescription = "更新体彩足球数据")
+                }
                 Spacer(Modifier.width(SpacingSm))
-                Text("更新中...")
-            } else {
-                Icon(Icons.Default.PlayArrow, contentDescription = "更新体彩足球数据")
-                Spacer(Modifier.width(SpacingSm))
-                Text("更新体彩足球数据")
+                Text(if (isFootballUpdating) "更新中" else "更新数据")
             }
         }
         footballUpdateError?.let { ErrorState(it, onRetry = onFootballServerUpdate) }

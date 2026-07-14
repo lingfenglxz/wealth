@@ -6,6 +6,8 @@ import com.demo.wealth.ui.components.connectionStatus
 import com.demo.wealth.ui.latestRecommendationRun
 import com.demo.wealth.ui.parseHadOdds
 import com.demo.wealth.ui.nextVisibleCount
+import com.demo.wealth.ui.expectedSsqDrawDate
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -43,6 +45,15 @@ class UiBehaviorTest {
         val latest = latestRecommendationRun(history)
 
         assertEquals(listOf("had", "hhad"), latest.map { it.playType })
+    }
+
+    @Test
+    fun expectedDrawDateAdvancesToNextTuesdayThursdayOrSunday() {
+        assertEquals("2026-07-14", expectedSsqDrawDate("2026-07-12"))
+        assertEquals("2026-07-16", expectedSsqDrawDate("2026-07-14"))
+        assertEquals("2026-07-19", expectedSsqDrawDate("2026-07-16"))
+        assertEquals("2027-01-03", expectedSsqDrawDate("2026-12-31"))
+        assertNull(expectedSsqDrawDate("not-a-date"))
     }
 
     private fun recommendation(createdAt: Long, playType: String) = FootballRecommendationEntity(

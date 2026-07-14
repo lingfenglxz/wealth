@@ -13,29 +13,29 @@ import androidx.compose.ui.graphics.Color
  */
 
 // ===== 主色 =====
-val Primary = Color(0xFF10B981)
-val PrimaryHover = Color(0xFF059669)
-val PrimaryContainer = Color(0xFFECFDF5)
+val Primary = Color(0xFF5062D9)
+val PrimaryHover = Color(0xFF4051C4)
+val PrimaryContainer = Color(0xFFEEF0FF)
 val OnPrimary = Color(0xFFFFFFFF)
-val OnPrimaryContainer = Color(0xFF065F46)
+val OnPrimaryContainer = Color(0xFF29388F)
 
 // ===== 文字层级（3 级统一） =====
-val TextPrimary = Color(0xFF0F172A)   // slate-900，统一所有标题
-val TextSecondary = Color(0xFF475569) // slate-600，统一所有次要文字
-val TextTertiary = Color(0xFF94A3B8)  // slate-400，仅辅助提示
+val TextPrimary = Color(0xFF171A25)
+val TextSecondary = Color(0xFF667085)
+val TextTertiary = Color(0xFF98A2B3)
 
 // ===== 背景/表面 =====
-val Background = Color(0xFFF8FAFC)    // slate-50
+val Background = Color(0xFFF5F6FA)
 val Surface = Color(0xFFFFFFFF)
-val SurfaceVariant = Color(0xFFF1F5F9) // slate-100
+val SurfaceVariant = Color(0xFFF7F8FC)
 
 // ===== 边框（2 级统一） =====
-val BorderSubtle = Color(0xFFE2E8F0)  // slate-200
-val BorderDefault = Color(0xFFCBD5E1) // slate-300
+val BorderSubtle = Color(0xFFE1E5EE)
+val BorderDefault = Color(0xFFD2D8E4)
 
 // ===== 语义功能色 =====
-val Success = Color(0xFF10B981)
-val Error = Color(0xFFEF4444)
+val Success = Color(0xFF16855B)
+val Error = Color(0xFFC63C47)
 val Warning = Color(0xFFF59E0B)
 val Info = Color(0xFF3B82F6)
 
@@ -52,10 +52,8 @@ val OnWarningContainer = Color(0xFFB45309)
 val OnInfoContainer = Color(0xFF1D4ED8)
 
 // ===== 彩球专用（令牌化） =====
-val LotteryRed = Color(0xFFDC2626)
-val LotteryRedLight = Color(0xFFF87171) // 用于径向渐变高光
-val LotteryBlue = Color(0xFF2563EB)
-val LotteryBlueLight = Color(0xFF60A5FA) // 用于径向渐变高光
+val LotteryRed = Color(0xFFE5484D)
+val LotteryBlue = Color(0xFF3E63DD)
 
 // ===== 热力图梯度（5 级） =====
 val HeatLevel1 = Color(0xFFFEE2E2)

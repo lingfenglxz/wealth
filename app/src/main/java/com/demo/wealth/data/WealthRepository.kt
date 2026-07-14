@@ -46,25 +46,17 @@ class WealthRepository(context: Context) {
 
     suspend fun generateLotteryPredictionsFromServer(
         baseUrl: String,
-        singleCount: Int = 0,
         compoundCount: Int = 1,
         compoundRedCount: Int = 6,
-        compoundBlueCount: Int = 3,
-        modelVersion: String = "auto",
-        recentWindow: Int = 240,
-        budgetBets: Int = 252
+        compoundBlueCount: Int = 3
     ): LotteryRecommendationResponse {
         val normalized = baseUrl.trim().trimEnd('/')
         if (normalized.isBlank()) throw IOException("请先填写服务端地址")
         val text = fetchText(
             normalized + buildSsqRecommendationPath(
-                singleCount = singleCount,
                 compoundCount = compoundCount,
                 compoundRedCount = compoundRedCount,
-                compoundBlueCount = compoundBlueCount,
-                modelVersion = modelVersion,
-                recentWindow = recentWindow,
-                budgetBets = budgetBets
+                compoundBlueCount = compoundBlueCount
             )
         )
         val draws = LotteryOfficialParser.parseServerJson(text)
@@ -350,33 +342,11 @@ class WealthRepository(context: Context) {
                 averageDistinctBlueCount = it.optFiniteDouble("averageDistinctBlueCount")
             )
         }
-        val comparison = root.optJSONArray("modelComparison").toObjects {
-            LotteryModelComparison(
-                version = getString("version"),
-                averageBestRedHits = getDouble("averageBestRedHits"),
-                blueHitRate = getDouble("blueHitRate"),
-                atLeastThreeRedRate = getDouble("atLeastThreeRedRate"),
-                prizeHitRate = optFiniteDouble("prizeHitRate"),
-                averageBetCount = optFiniteDouble("averageBetCount"),
-                averageDistinctBlueCount = optFiniteDouble("averageDistinctBlueCount")
-            )
-        }
-        val budgetPlan = root.optJSONObject("budgetPlan")?.let {
-            LotteryBudgetPlan(
-                budgetBets = it.optInt("budgetBets"),
-                redCount = it.optInt("redCount"),
-                blueCount = it.optInt("blueCount"),
-                betCount = it.optLong("betCount"),
-                reason = it.optString("reason")
-            )
-        }
         val rankings = root.optJSONObject("numberRankings")
         return LotteryResearchReport(
             modelVersion = root.optString("modelVersion", "recent_focus_v3"),
-            recentWindow = root.optInt("recentWindow", 120),
+            recentWindow = root.optInt("recentWindow", 500),
             backtest = backtest,
-            modelComparison = comparison,
-            budgetPlan = budgetPlan,
             narrative = root.optJSONArray("narrative")?.toStrings().orEmpty(),
             redRankings = rankings?.optJSONArray("reds").toObjects { toNumberRanking() },
             blueRankings = rankings?.optJSONArray("blues").toObjects { toNumberRanking() }
@@ -396,26 +366,6 @@ class WealthRepository(context: Context) {
                     .put("prizeHitRate", it.prizeHitRate)
                     .put("averageBetCount", it.averageBetCount)
                     .put("averageDistinctBlueCount", it.averageDistinctBlueCount)
-            })
-            .put("modelComparison", JSONArray().also { array ->
-                modelComparison.forEach {
-                    array.put(JSONObject()
-                        .put("version", it.version)
-                        .put("averageBestRedHits", it.averageBestRedHits)
-                        .put("blueHitRate", it.blueHitRate)
-                        .put("atLeastThreeRedRate", it.atLeastThreeRedRate)
-                        .put("prizeHitRate", it.prizeHitRate)
-                        .put("averageBetCount", it.averageBetCount)
-                        .put("averageDistinctBlueCount", it.averageDistinctBlueCount))
-                }
-            })
-            .put("budgetPlan", budgetPlan?.let {
-                JSONObject()
-                    .put("budgetBets", it.budgetBets)
-                    .put("redCount", it.redCount)
-                    .put("blueCount", it.blueCount)
-                    .put("betCount", it.betCount)
-                    .put("reason", it.reason)
             })
             .put("narrative", JSONArray(narrative))
             .put("numberRankings", JSONObject()
@@ -617,15 +567,10 @@ class WealthRepository(context: Context) {
 }
 
 internal fun buildSsqRecommendationPath(
-    singleCount: Int = 0,
     compoundCount: Int = 1,
     compoundRedCount: Int = 6,
     compoundBlueCount: Int = 3,
-    modelVersion: String = "auto",
-    recentWindow: Int = 240,
-    budgetBets: Int = 252,
     limit: Int = 3000
 ): String =
     "/api/lottery/ssq/recommendations" +
-        "?singleCount=$singleCount&compoundCount=$compoundCount&redCount=$compoundRedCount&blueCount=$compoundBlueCount" +
-        "&modelVersion=$modelVersion&recentWindow=$recentWindow&budgetBets=$budgetBets&limit=$limit"
+        "?compoundCount=$compoundCount&redCount=$compoundRedCount&blueCount=$compoundBlueCount&limit=$limit"

@@ -6,6 +6,8 @@ import com.demo.wealth.data.LotterySettlementDetail
 import com.demo.wealth.data.FootballRecommendationEntity
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.DayOfWeek
+import java.time.LocalDate
 
 /**
  * UI 工具函数 - 格式化与数据解析
@@ -23,6 +25,13 @@ fun money(value: Double): String = "¥${"%.2f".format(value)}"
 
 fun nextIssueLabel(issue: String): String =
     issue.toLongOrNull()?.let { (it + 1).toString().padStart(issue.length, '0') } ?: "下一期"
+
+fun expectedSsqDrawDate(sourceDate: String): String? {
+    val parsed = runCatching { LocalDate.parse(sourceDate) }.getOrNull() ?: return null
+    return generateSequence(parsed.plusDays(1)) { it.plusDays(1) }
+        .first { it.dayOfWeek in setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY, DayOfWeek.SUNDAY) }
+        .toString()
+}
 
 fun nextVisibleCount(current: Int, total: Int, pageSize: Int): Int =
     (current + pageSize).coerceAtMost(total)
