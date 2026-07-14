@@ -12,10 +12,13 @@ import com.demo.wealth.data.LotteryPrediction
 import com.demo.wealth.data.LotteryResearchReport
 import com.demo.wealth.data.LotterySettlement
 import com.demo.wealth.data.WealthRepository
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 class WealthViewModel(application: Application) : AndroidViewModel(application) {
@@ -29,7 +32,17 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
     val footballMatches: StateFlow<List<FootballMatchEntity>> = repository.footballMatches.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val footballRecommendations: StateFlow<List<FootballRecommendationEntity>> = repository.footballRecommendations.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val footballRecommendationHistory: StateFlow<List<FootballRecommendationEntity>> = repository.footballRecommendationHistory.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val message = MutableStateFlow("准备就绪")
+    private val messageChannel = Channel<String>(capacity = Channel.BUFFERED)
+    val messages = messageChannel.receiveAsFlow()
+    val isServerConnected = MutableStateFlow(false)
+    val isLotteryUpdating = MutableStateFlow(false)
+    val isFootballUpdating = MutableStateFlow(false)
+    val isLotteryGenerating = MutableStateFlow(false)
+    val isFootballGenerating = MutableStateFlow(false)
+    val lotteryUpdateError = MutableStateFlow<String?>(null)
+    val footballUpdateError = MutableStateFlow<String?>(null)
+    val lotteryGenerationError = MutableStateFlow<String?>(null)
+    val footballGenerationError = MutableStateFlow<String?>(null)
     private val prefs = application.getSharedPreferences("wealthlab", Context.MODE_PRIVATE)
     val lotteryServerUrl = MutableStateFlow(prefs.getString("lottery_server_url", "") ?: "")
     val compoundRedCount = MutableStateFlow(prefs.getInt("compound_red_count", 6))
@@ -70,42 +83,68 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun updateLotteryFromServer() {
+        if (!isLotteryUpdating.compareAndSet(expect = false, update = true)) return
+        lotteryUpdateError.value = null
         viewModelScope.launch {
-            runCatching {
+            try {
                 val drawCount = repository.updateLotteryFromServer(lotteryServerUrl.value)
-                message.value = "服务端更新 $drawCount 期"
-            }.onFailure {
-                message.value = "服务端更新失败：${friendlyError(it)}"
+                isServerConnected.value = true
+                notify("服务端更新 $drawCount 期")
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                lotteryUpdateError.value = friendlyError(error)
+                isServerConnected.value = false
+                notify("服务端更新失败：${lotteryUpdateError.value}")
+            } finally {
+                isLotteryUpdating.value = false
             }
         }
     }
 
     fun updateFootballFromServer() {
+        if (!isFootballUpdating.compareAndSet(expect = false, update = true)) return
+        footballUpdateError.value = null
         viewModelScope.launch {
-            runCatching {
+            try {
                 val count = repository.updateFootballMatchesFromServer(lotteryServerUrl.value)
-                message.value = "服务端已更新 $count 场足球赛事"
-            }.onFailure {
-                message.value = "足球赛事更新失败：${friendlyError(it)}"
+                isServerConnected.value = true
+                notify("服务端已更新 $count 场足球赛事")
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                footballUpdateError.value = friendlyError(error)
+                isServerConnected.value = false
+                notify("足球赛事更新失败：${footballUpdateError.value}")
+            } finally {
+                isFootballUpdating.value = false
             }
         }
     }
 
     fun generateFootballRecommendations() {
+        if (!isFootballGenerating.compareAndSet(expect = false, update = true)) return
+        footballGenerationError.value = null
         viewModelScope.launch {
-            runCatching {
+            try {
                 val count = repository.generateFootballRecommendationsFromServer(lotteryServerUrl.value)
-                message.value = "服务端已生成 $count 条足球彩票实验推荐"
-            }.onFailure {
-                message.value = "足球推荐失败：${friendlyError(it)}"
+                isServerConnected.value = true
+                notify("服务端已生成 $count 条足球彩票实验推荐")
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                footballGenerationError.value = friendlyError(error)
+                isServerConnected.value = false
+                notify("足球推荐失败：${footballGenerationError.value}")
+            } finally {
+                isFootballGenerating.value = false
             }
         }
     }
 
     fun generateLottery(redCount: Int = compoundRedCount.value, blueCount: Int = compoundBlueCount.value) {
+        if (!isLotteryGenerating.compareAndSet(expect = false, update = true)) return
+        lotteryGenerationError.value = null
         setCompoundPlan(redCount, blueCount)
         viewModelScope.launch {
-            runCatching {
+            try {
                 val response = repository.generateLotteryPredictionsFromServer(
                     baseUrl = lotteryServerUrl.value,
                     compoundRedCount = redCount,
@@ -116,15 +155,27 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
                 )
                 val predictions = response.predictions
                 val target = predictions.firstOrNull()?.targetIssue ?: "下一"
-                message.value = "服务端已生成第 ${target} 期 ${redCount}+${blueCount} 推荐"
-            }.onFailure {
-                message.value = "生成失败：${friendlyError(it)}"
+                isServerConnected.value = true
+                notify("服务端已生成第 ${target} 期 ${redCount}+${blueCount} 推荐")
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                lotteryGenerationError.value = friendlyError(error)
+                isServerConnected.value = false
+                notify("生成失败：${lotteryGenerationError.value}")
+            } finally {
+                isLotteryGenerating.value = false
             }
         }
     }
 
     fun setLotteryServerUrl(value: String) {
+        if (lotteryServerUrl.value == value) return
         lotteryServerUrl.value = value
+        isServerConnected.value = false
+        lotteryUpdateError.value = null
+        footballUpdateError.value = null
+        lotteryGenerationError.value = null
+        footballGenerationError.value = null
         prefs.edit().putString("lottery_server_url", value).apply()
     }
 
@@ -159,9 +210,15 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
     fun exportBackup(uri: Uri?) {
         if (uri == null) return
         viewModelScope.launch {
-            val text = repository.exportBackup()
-            resolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use { it.write(text) }
-            message.value = "备份已导出"
+            runCatching {
+                val text = repository.exportBackup()
+                val output = requireNotNull(resolver.openOutputStream(uri)) { "无法写入所选文件" }
+                output.bufferedWriter(Charsets.UTF_8).use { it.write(text) }
+            }.onSuccess {
+                notify("备份已导出")
+            }.onFailure {
+                notify("导出失败：${it.message ?: "无法写入文件"}")
+            }
         }
     }
 
@@ -170,11 +227,15 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             runCatching {
                 repository.restoreBackup(readText(uri))
-                message.value = "备份已恢复"
+                notify("备份已恢复")
             }.onFailure {
-                message.value = "恢复失败：${it.message ?: "文件格式错误"}"
+                notify("恢复失败：${it.message ?: "文件格式错误"}")
             }
         }
+    }
+
+    private fun notify(message: String) {
+        messageChannel.trySend(message)
     }
 
     private fun readText(uri: Uri): String =

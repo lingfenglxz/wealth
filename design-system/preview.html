@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WealthLab 重新设计预览 v2</title>
+<link rel="icon" href="data:,">
 <style>
 :root {
   --primary: #10B981;
@@ -219,6 +220,24 @@ body {
 .collapsible-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
 .chevron { transition: transform 0.2s; }
 .chevron.expanded { transform: rotate(90deg); }
+
+@media (max-width: 900px) {
+  .comparison { grid-template-columns: 1fr; }
+  .comparison > * { min-width: 0; }
+  .phone-frame { max-width: 100%; box-sizing: border-box; }
+  .comparison .phone-frame { transform: none !important; }
+}
+
+@media (max-width: 480px) {
+  body { padding: 24px 0; }
+  .page-container { padding: 0 20px; }
+  .section-title-main { font-size: 26px; }
+  .section-block { margin-bottom: 48px; }
+  .phone-frame { border-radius: 28px; }
+  [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
+  .draw-item { align-items: flex-start; flex-direction: column; }
+  .draw-balls { flex-wrap: wrap; }
+}
 </style>
 </head>
 <body>
@@ -532,14 +551,10 @@ body {
 
         <!-- ActionHeader -->
         <div class="card card-raised">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <span class="pill pill-primary" style="margin-bottom: 8px;">研究台</span>
-              <div style="font-size: 20px; font-weight: 800; margin-top: 8px;">双色球实验模型</div>
-              <div style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">目标第 202628 期</div>
-            </div>
-            <button class="btn btn-primary btn-md">▶ 生成推荐</button>
-          </div>
+          <span class="pill pill-primary" style="margin-bottom: 8px;">研究台</span>
+          <div style="font-size: 20px; font-weight: 800; margin-top: 8px;">双色球实验模型</div>
+          <div style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">目标第 202628 期</div>
+          <button class="btn btn-primary btn-lg" style="margin-top: 12px;">▶ 生成推荐</button>
         </div>
 
         <!-- 推荐结果（合并 PredictionCard） -->
@@ -721,14 +736,10 @@ body {
       <div class="screen-content">
         <!-- ActionHeader -->
         <div class="card card-raised">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <span class="pill pill-primary" style="margin-bottom: 8px;">研究台</span>
-              <div style="font-size: 20px; font-weight: 800; margin-top: 8px;">足球彩票</div>
-              <div style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">当前 3 场 · 历史 12 场</div>
-            </div>
-            <button class="btn btn-primary btn-md">▶ 生成推荐</button>
-          </div>
+          <span class="pill pill-primary" style="margin-bottom: 8px;">研究台</span>
+          <div style="font-size: 20px; font-weight: 800; margin-top: 8px;">足球彩票</div>
+          <div style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">当前 3 场 · 历史 12 场</div>
+          <button class="btn btn-primary btn-lg" style="margin-top: 12px;">▶ 生成推荐</button>
         </div>
 
         <!-- 移除了单按钮 ChoiceButton 行 -->

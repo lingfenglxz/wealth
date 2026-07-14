@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -37,6 +38,7 @@ import com.demo.wealth.ui.theme.SpacingMd
 import com.demo.wealth.ui.theme.Surface
 import com.demo.wealth.ui.theme.TextPrimary
 import com.demo.wealth.ui.theme.TextSecondary
+import com.demo.wealth.ui.theme.TouchTargetMin
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -80,6 +82,7 @@ fun CollapsibleCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { expanded = !expanded }
+                    .defaultMinSize(minHeight = TouchTargetMin)
                     .padding(vertical = SpacingXs),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically

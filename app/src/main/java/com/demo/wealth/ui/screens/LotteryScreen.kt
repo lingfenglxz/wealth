@@ -1,9 +1,11 @@
 package com.demo.wealth.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,7 +23,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -47,6 +51,7 @@ import com.demo.wealth.ui.components.BallSmall
 import com.demo.wealth.ui.components.ChoiceButton
 import com.demo.wealth.ui.components.CollapsibleCard
 import com.demo.wealth.ui.components.CountStepper
+import com.demo.wealth.ui.components.ErrorState
 import com.demo.wealth.ui.components.GroupLabel
 import com.demo.wealth.ui.components.HeatmapGrid
 import com.demo.wealth.ui.components.MetaPill
@@ -58,6 +63,7 @@ import com.demo.wealth.ui.frequentNumbers
 import com.demo.wealth.ui.groupSettlementsByIssue
 import com.demo.wealth.ui.money
 import com.demo.wealth.ui.nextIssueLabel
+import com.demo.wealth.ui.nextVisibleCount
 import com.demo.wealth.ui.overdueNumbers
 import com.demo.wealth.ui.parseBallDetails
 import com.demo.wealth.ui.parseSettlementDetails
@@ -65,6 +71,7 @@ import com.demo.wealth.ui.parseStringArray
 import com.demo.wealth.ui.percent
 import com.demo.wealth.ui.signedPercent
 import com.demo.wealth.ui.theme.ErrorContainer
+import com.demo.wealth.ui.theme.ButtonHeightLarge
 import com.demo.wealth.ui.theme.InfoContainer
 import com.demo.wealth.ui.theme.OnErrorContainer
 import com.demo.wealth.ui.theme.OnInfoContainer
@@ -76,6 +83,7 @@ import com.demo.wealth.ui.theme.SpacingMd
 import com.demo.wealth.ui.theme.SpacingSm
 import com.demo.wealth.ui.theme.Success
 import com.demo.wealth.ui.theme.TextSecondary
+import com.demo.wealth.ui.theme.TouchTargetMin
 
 /**
  * 福彩页 - 双色球实验模型
@@ -85,6 +93,7 @@ import com.demo.wealth.ui.theme.TextSecondary
  * - 11 个卡片重组为 3 分组：「推荐与生成」「数据分析」「历史记录」
  * - 使用 GroupLabel 分组标题
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LotteryScreen(
     draws: List<LotteryDraw>,
@@ -101,23 +110,31 @@ fun LotteryScreen(
     onBudgetChange: (Int) -> Unit,
     onModelVersionChange: (String) -> Unit,
     onGenerate: (Int, Int) -> Unit,
+    isGenerating: Boolean = false,
+    errorMessage: String? = null,
     modifier: Modifier = Modifier
 ) {
+    var visibleDrawCount by rememberSaveable { mutableIntStateOf(20) }
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(SpacingLg),
         verticalArrangement = Arrangement.spacedBy(SpacingMd)
     ) {
         // ===== 分组 1: 推荐与生成 =====
-        item { GroupLabel("推荐与生成") }
+        stickyHeader { StickyGroupLabel("推荐与生成") }
 
         item {
             val targetIssue = draws.firstOrNull()?.issue?.let { nextIssueLabel(it) } ?: "请先更新数据"
             ActionHeader(
                 "双色球实验模型",
-                "历史期数 ${draws.size} · 推荐目标 $targetIssue"
+                "历史期数 ${draws.size} · 推荐目标 $targetIssue",
+                isGenerating
             ) {
                 onGenerate(compoundRedCount, compoundBlueCount)
             }
+        }
+
+        errorMessage?.let { message ->
+            item { ErrorState(message, onRetry = { onGenerate(compoundRedCount, compoundBlueCount) }) }
         }
 
         // 推荐结果
@@ -136,7 +153,7 @@ fun LotteryScreen(
         }
 
         // ===== 分组 2: 数据分析 =====
-        item { GroupLabel("数据分析") }
+        stickyHeader { StickyGroupLabel("数据分析") }
 
         item {
             LotteryAnalysisCard(draws, predictions.firstOrNull(), compoundRedCount, compoundBlueCount, report)
@@ -159,7 +176,7 @@ fun LotteryScreen(
         }
 
         // ===== 分组 3: 历史记录 =====
-        item { GroupLabel("历史记录") }
+        stickyHeader { StickyGroupLabel("历史记录") }
 
         item {
             SettlementOverviewCard(settlements)
@@ -179,32 +196,51 @@ fun LotteryScreen(
                 }
             }
         }
-        items(draws.take(20), key = { it.issue }) { draw ->
+        items(draws.take(visibleDrawCount), key = { it.issue }) { draw ->
             DrawCard(draw)
         }
+        if (draws.size > visibleDrawCount) {
+            item {
+                TextButton(
+                    onClick = { visibleDrawCount = nextVisibleCount(visibleDrawCount, draws.size, 20) },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("加载更多（${draws.size - visibleDrawCount} 期）") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StickyGroupLabel(text: String) {
+    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxWidth()) {
+        GroupLabel(text)
     }
 }
 
 // ===== ActionHeader =====
 @Composable
-private fun ActionHeader(title: String, subtitle: String, onClick: () -> Unit) {
+private fun ActionHeader(title: String, subtitle: String, loading: Boolean, onClick: () -> Unit) {
     Panel(raised = true) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()
+        MetaPill("研究台", PrimaryContainer, PrimaryHover)
+        Spacer(Modifier.height(SpacingSm))
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Spacer(Modifier.height(SpacingMd))
+        Button(
+            onClick = onClick,
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth().height(ButtonHeightLarge)
         ) {
-            Column(Modifier.weight(1f)) {
-                MetaPill("研究台", PrimaryContainer, PrimaryHover)
-                Spacer(Modifier.height(SpacingSm))
-                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-            }
-            Button(onClick = onClick) {
+            if (loading) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.height(18.dp).width(18.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
                 androidx.compose.material3.Icon(Icons.Default.PlayArrow, contentDescription = null)
-                Spacer(Modifier.width(SpacingSm))
-                Text("生成推荐")
             }
+            Spacer(Modifier.width(SpacingSm))
+            Text(if (loading) "生成中..." else "生成推荐")
         }
     }
 }
@@ -214,10 +250,10 @@ private fun ActionHeader(title: String, subtitle: String, onClick: () -> Unit) {
 private fun PredictionCard(prediction: LotteryPrediction) {
     var expanded by rememberSaveable(prediction.id) { mutableStateOf(false) }
     val reasonLines = remember(prediction.reasons) {
-        prediction.reasons?.lineSequence()?.filter { it.isNotBlank() }?.toList().orEmpty()
+        prediction.reasons.lineSequence().filter { it.isNotBlank() }.toList()
     }
     val details = remember(prediction.ballDetails) {
-        prediction.ballDetails?.takeIf { it.isNotBlank() }?.let(::parseBallDetails).orEmpty()
+        prediction.ballDetails.takeIf { it.isNotBlank() }?.let(::parseBallDetails).orEmpty()
     }
 
     Panel {
@@ -261,6 +297,7 @@ private fun PredictionCard(prediction: LotteryPrediction) {
                 modifier = Modifier
                     .clip(MaterialTheme.shapes.medium)
                     .clickable { expanded = !expanded }
+                    .defaultMinSize(minHeight = TouchTargetMin)
                     .padding(SpacingSm)
             ) {
                 Text(
@@ -590,11 +627,28 @@ private fun SettlementIssueRow(settlements: List<LotterySettlement>) {
     var expanded by rememberSaveable(issue) { mutableStateOf(false) }
 
     Column {
-        Text("第 $issue 期", fontWeight = FontWeight.SemiBold)
-        Text(
-            "${settlements.size} 次推荐 · ${money(totalInvested)} 投入 · ${money(totalPrize)} 奖金 · ROI ${percent(totalRoi)}",
-            style = MaterialTheme.typography.bodySmall, color = TextSecondary
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = TouchTargetMin)
+                .clickable { expanded = !expanded },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("第 $issue 期", fontWeight = FontWeight.SemiBold)
+                Text(
+                    "${settlements.size} 次推荐 · ${money(totalInvested)} 投入 · ${money(totalPrize)} 奖金 · ROI ${percent(totalRoi)}",
+                    style = MaterialTheme.typography.bodySmall, color = TextSecondary
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = if (expanded) "收起第 $issue 期结算" else "展开第 $issue 期结算",
+                modifier = Modifier.rotate(if (expanded) 180f else 0f),
+                tint = TextSecondary
+            )
+        }
         CollapsibleContent(expanded) {
             settlements.forEachIndexed { index, settlement ->
                 Text(

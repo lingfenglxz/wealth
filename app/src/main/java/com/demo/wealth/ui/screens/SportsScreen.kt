@@ -1,5 +1,6 @@
 package com.demo.wealth.ui.screens
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,16 +12,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,20 +34,24 @@ import com.demo.wealth.data.FootballRecommendationEntity
 import com.demo.wealth.domain.sports.FootballDisplayNames
 import com.demo.wealth.domain.sports.FootballPlayTypes
 import com.demo.wealth.domain.sports.FootballScheduleUi
-import com.demo.wealth.ui.components.BallSmall
 import com.demo.wealth.ui.components.CollapsibleCard
+import com.demo.wealth.ui.components.ErrorState
 import com.demo.wealth.ui.components.GroupLabel
 import com.demo.wealth.ui.components.MetaPill
+import com.demo.wealth.ui.components.MetricCard
 import com.demo.wealth.ui.components.MetricRow
 import com.demo.wealth.ui.components.Panel
 import com.demo.wealth.ui.percent
+import com.demo.wealth.ui.latestRecommendationRun
+import com.demo.wealth.ui.nextVisibleCount
+import com.demo.wealth.ui.parseHadOdds
 import com.demo.wealth.ui.signedPercent
 import com.demo.wealth.ui.theme.ErrorContainer
+import com.demo.wealth.ui.theme.ButtonHeightLarge
 import com.demo.wealth.ui.theme.InfoContainer
 import com.demo.wealth.ui.theme.OnErrorContainer
 import com.demo.wealth.ui.theme.OnInfoContainer
 import com.demo.wealth.ui.theme.OnPrimaryContainer
-import com.demo.wealth.ui.theme.Primary
 import com.demo.wealth.ui.theme.PrimaryContainer
 import com.demo.wealth.ui.theme.PrimaryHover
 import com.demo.wealth.ui.theme.SpacingLg
@@ -68,12 +75,16 @@ fun SportsScreen(
     recommendations: List<FootballRecommendationEntity>,
     recommendationHistory: List<FootballRecommendationEntity>,
     onGenerate: () -> Unit,
+    isGenerating: Boolean = false,
+    errorMessage: String? = null,
     modifier: Modifier = Modifier
 ) {
     val recommendationsByMatch = recommendations.groupBy { it.matchId }
     val recommendationHistoryByMatch = recommendationHistory.groupBy { it.matchId }
     val historicalMatches = matches.filter { FootballScheduleUi.isHistoricalKickoff(it.kickoffTime) }
     val currentMatches = matches.filterNot { FootballScheduleUi.isHistoricalKickoff(it.kickoffTime) }
+    var visibleCurrentCount by rememberSaveable { mutableIntStateOf(40) }
+    var visibleHistoricalCount by rememberSaveable { mutableIntStateOf(30) }
 
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(SpacingLg),
@@ -82,33 +93,39 @@ fun SportsScreen(
         // ActionHeader
         item {
             Panel(raised = true) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
+                MetaPill("研究台", PrimaryContainer, PrimaryHover)
+                Spacer(Modifier.height(SpacingSm))
+                Text(
+                    "足球彩票",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "当前赛事 ${currentMatches.size} 场 · 历史 ${historicalMatches.size} 场",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+                Spacer(Modifier.height(SpacingMd))
+                Button(
+                    onClick = onGenerate,
+                    enabled = !isGenerating,
+                    modifier = Modifier.fillMaxWidth().height(ButtonHeightLarge)
                 ) {
-                    Column(Modifier.weight(1f)) {
-                        MetaPill("研究台", PrimaryContainer, PrimaryHover)
-                        Spacer(Modifier.height(SpacingSm))
-                        Text(
-                            "足球彩票",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
+                    if (isGenerating) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            modifier = Modifier.height(18.dp).width(18.dp),
+                            strokeWidth = 2.dp
                         )
-                        Text(
-                            "当前赛事 ${currentMatches.size} 场 · 历史 ${historicalMatches.size} 场",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary
-                        )
-                    }
-                    Button(onClick = onGenerate) {
+                    } else {
                         androidx.compose.material3.Icon(Icons.Default.PlayArrow, contentDescription = null)
-                        Spacer(Modifier.width(SpacingSm))
-                        Text("生成推荐")
                     }
+                    Spacer(Modifier.width(SpacingSm))
+                    Text(if (isGenerating) "生成中..." else "生成推荐")
                 }
             }
         }
+
+        errorMessage?.let { message -> item { ErrorState(message, onRetry = onGenerate) } }
 
         // 支持玩法
         item { FootballPlayTypeCard() }
@@ -129,8 +146,16 @@ fun SportsScreen(
                 }
             }
         } else {
-            items(currentMatches.take(40), key = { it.matchId }) { match ->
+            items(currentMatches.take(visibleCurrentCount), key = { it.matchId }) { match ->
                 FootballMatchCardFlat(match, recommendationsByMatch[match.matchId].orEmpty())
+            }
+            if (currentMatches.size > visibleCurrentCount) {
+                item {
+                    TextButton(
+                        onClick = { visibleCurrentCount = nextVisibleCount(visibleCurrentCount, currentMatches.size, 40) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("加载更多（${currentMatches.size - visibleCurrentCount} 场）") }
+                }
             }
         }
 
@@ -141,8 +166,10 @@ fun SportsScreen(
                     title = "历史比赛",
                     subtitle = "${historicalMatches.size} 场"
                 ) {
-                    historicalMatches.take(30).forEach { match ->
-                        val matchRecs = recommendationHistoryByMatch[match.matchId].orEmpty()
+                    historicalMatches.take(visibleHistoricalCount).forEach { match ->
+                        val matchRecs = latestRecommendationRun(
+                            recommendationHistoryByMatch[match.matchId].orEmpty()
+                        )
                         Text(
                             "${FootballDisplayNames.team(match.homeTeam)} vs ${FootballDisplayNames.team(match.awayTeam)}",
                             style = MaterialTheme.typography.titleSmall,
@@ -153,7 +180,7 @@ fun SportsScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
                         )
-                        matchRecs.take(5).forEach { item ->
+                        matchRecs.forEach { item ->
                             Text(
                                 "${item.playName} ${FootballPlayTypes.selectionName(item.playType, item.selection)} · 置信分 ${percent(item.confidence)} · 理论价值 ${signedPercent(item.edge)}",
                                 style = MaterialTheme.typography.bodySmall,
@@ -161,6 +188,18 @@ fun SportsScreen(
                             )
                         }
                         Spacer(Modifier.height(SpacingMd))
+                    }
+                    if (historicalMatches.size > visibleHistoricalCount) {
+                        TextButton(
+                            onClick = {
+                                visibleHistoricalCount = nextVisibleCount(
+                                    visibleHistoricalCount,
+                                    historicalMatches.size,
+                                    30
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("加载更多（${historicalMatches.size - visibleHistoricalCount} 场）") }
                     }
                 }
             }
@@ -217,7 +256,10 @@ private fun FootballMatchCardFlat(
 
         // 玩法标签
         Spacer(Modifier.height(SpacingMd))
-        Row(horizontalArrangement = Arrangement.spacedBy(SpacingSm)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(SpacingSm),
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+        ) {
             val availablePools = FootballPlayTypes.allCodes.filter { match.poolsJson.contains("\"$it\"") }
             if (availablePools.isEmpty()) {
                 MetaPill("暂无赔率", SurfaceVariant, TextSecondary)
@@ -227,13 +269,26 @@ private fun FootballMatchCardFlat(
             }
         }
 
+        val hadOdds = remember(match.poolsJson) { parseHadOdds(match.poolsJson) }
+        if (hadOdds.isNotEmpty()) {
+            Spacer(Modifier.height(SpacingMd))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(SpacingSm)
+            ) {
+                hadOdds.forEach { (label, value) ->
+                    MetricCard(label, "%.2f".format(value), modifier = Modifier.weight(1f))
+                }
+            }
+        }
+
         // 推荐摘要（扁平化，直接展示，不再嵌套展开）
         if (recommendations.isNotEmpty()) {
             Spacer(Modifier.height(SpacingMd))
             val sorted = recommendations.sortedWith(
                 compareBy<FootballRecommendationEntity> { it.playType }.thenByDescending { it.confidence }
             )
-            sorted.take(3).forEach { rec ->
+            sorted.forEach { rec ->
                 RecommendationSummary(rec)
                 Spacer(Modifier.height(SpacingSm))
             }
@@ -251,7 +306,10 @@ private fun RecommendationSummary(item: FootballRecommendationEntity) {
             .fillMaxWidth()
             .padding(SpacingMd)
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(SpacingSm)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(SpacingSm),
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+        ) {
             MetaPill(item.playName, InfoContainer, OnInfoContainer)
             MetaPill(
                 FootballPlayTypes.selectionName(item.playType, item.selection),
@@ -281,7 +339,10 @@ private fun FootballPlayTypeCard() {
     Panel {
         Text("支持玩法", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(SpacingSm))
-        Row(horizontalArrangement = Arrangement.spacedBy(SpacingSm)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(SpacingSm),
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+        ) {
             FootballPlayTypes.allCodes.forEach { code ->
                 MetaPill(
                     FootballPlayTypes.displayName(code),

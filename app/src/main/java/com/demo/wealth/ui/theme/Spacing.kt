@@ -30,3 +30,6 @@ val ComponentGap = 8.dp       // 组件内元素间距
 // ===== 触控目标最小尺寸 =====
 val TouchTargetMin = 44.dp    // iOS HIG / Material 最低触控目标
 val TouchTargetComfortable = 48.dp // 舒适触控目标
+val ButtonHeightLarge = 52.dp
+val ButtonHeightMedium = 44.dp
+val ButtonHeightSmall = 36.dp

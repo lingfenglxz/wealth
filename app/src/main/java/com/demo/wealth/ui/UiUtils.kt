@@ -3,7 +3,9 @@ package com.demo.wealth.ui
 import com.demo.wealth.data.LotteryBallDetail
 import com.demo.wealth.data.LotteryDraw
 import com.demo.wealth.data.LotterySettlementDetail
+import com.demo.wealth.data.FootballRecommendationEntity
 import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * UI 工具函数 - 格式化与数据解析
@@ -21,6 +23,23 @@ fun money(value: Double): String = "¥${"%.2f".format(value)}"
 
 fun nextIssueLabel(issue: String): String =
     issue.toLongOrNull()?.let { (it + 1).toString().padStart(issue.length, '0') } ?: "下一期"
+
+fun nextVisibleCount(current: Int, total: Int, pageSize: Int): Int =
+    (current + pageSize).coerceAtMost(total)
+
+fun latestRecommendationRun(
+    recommendations: List<FootballRecommendationEntity>
+): List<FootballRecommendationEntity> {
+    val latestCreatedAt = recommendations.maxOfOrNull { it.createdAt } ?: return emptyList()
+    return recommendations.filter { it.createdAt == latestCreatedAt }
+}
+
+fun parseHadOdds(poolsJson: String): List<Pair<String, Double>> {
+    val had = runCatching { JSONObject(poolsJson).optJSONObject("had") }.getOrNull() ?: return emptyList()
+    return listOf("主胜" to "H", "平" to "D", "客胜" to "A").mapNotNull { (label, key) ->
+        had.optDouble(key).takeIf { !it.isNaN() && it > 0.0 }?.let { label to it }
+    }.takeIf { it.size == 3 }.orEmpty()
+}
 
 // ===== 号码统计 =====
 

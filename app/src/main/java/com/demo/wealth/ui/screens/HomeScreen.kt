@@ -1,6 +1,7 @@
 package com.demo.wealth.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
@@ -59,7 +61,6 @@ fun HomeScreen(
     predictions: List<LotteryPrediction>,
     settlements: List<LotterySettlement>,
     footballMatches: List<FootballMatchEntity>,
-    message: String,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -213,7 +214,9 @@ private fun HomePredictionCard(prediction: LotteryPrediction?) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(SpacingSm),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
             ) {
                 prediction.redBalls.forEach { Ball(it.toString().padStart(2, '0'), isRed = true) }
                 if (prediction.redBalls.isNotEmpty() && prediction.blueBalls.isNotEmpty()) {

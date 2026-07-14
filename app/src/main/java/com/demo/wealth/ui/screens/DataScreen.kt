@@ -34,8 +34,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.demo.wealth.ui.components.Panel
+import com.demo.wealth.ui.components.ErrorState
 import com.demo.wealth.ui.components.StatusIndicator
+import com.demo.wealth.ui.components.connectionStatus
 import com.demo.wealth.ui.theme.ButtonShape
+import com.demo.wealth.ui.theme.ButtonHeightLarge
+import com.demo.wealth.ui.theme.ButtonHeightMedium
 import com.demo.wealth.ui.theme.SpacingLg
 import com.demo.wealth.ui.theme.SpacingMd
 import com.demo.wealth.ui.theme.SpacingSm
@@ -62,6 +66,9 @@ fun DataScreen(
     footballMatchesCount: Int,
     isLotteryUpdating: Boolean,
     isFootballUpdating: Boolean,
+    isServerConnected: Boolean,
+    lotteryUpdateError: String? = null,
+    footballUpdateError: String? = null,
     modifier: Modifier = Modifier
 ) {
     val backupExportLauncher = rememberLauncherForActivityResult(
@@ -85,7 +92,10 @@ fun DataScreen(
                 lotteryDrawsCount = lotteryDrawsCount,
                 footballMatchesCount = footballMatchesCount,
                 isLotteryUpdating = isLotteryUpdating,
-                isFootballUpdating = isFootballUpdating
+                isFootballUpdating = isFootballUpdating,
+                isServerConnected = isServerConnected,
+                lotteryUpdateError = lotteryUpdateError,
+                footballUpdateError = footballUpdateError
             )
         }
 
@@ -107,7 +117,7 @@ fun DataScreen(
                     OutlinedButton(
                         onClick = { backupExportLauncher.launch("wealthlab-backup.json") },
                         shape = ButtonShape,
-                        modifier = Modifier.weight(1f).height(48.dp)
+                        modifier = Modifier.weight(1f).height(ButtonHeightMedium)
                     ) {
                         Icon(Icons.Default.Storage, contentDescription = "导出备份")
                         Spacer(Modifier.width(SpacingSm))
@@ -120,7 +130,7 @@ fun DataScreen(
                             )
                         },
                         shape = ButtonShape,
-                        modifier = Modifier.weight(1f).height(48.dp)
+                        modifier = Modifier.weight(1f).height(ButtonHeightMedium)
                     ) {
                         Icon(Icons.Default.CloudUpload, contentDescription = "恢复备份")
                         Spacer(Modifier.width(SpacingSm))
@@ -144,7 +154,10 @@ private fun DataSyncCard(
     lotteryDrawsCount: Int,
     footballMatchesCount: Int,
     isLotteryUpdating: Boolean,
-    isFootballUpdating: Boolean
+    isFootballUpdating: Boolean,
+    isServerConnected: Boolean,
+    lotteryUpdateError: String?,
+    footballUpdateError: String?
 ) {
     Panel {
         Text("数据同步", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -152,7 +165,10 @@ private fun DataSyncCard(
 
         // 连接状态指示器
         StatusIndicator(
-            status = com.demo.wealth.ui.components.ConnectionStatus.CONNECTED,
+            status = connectionStatus(
+                isSyncing = isLotteryUpdating || isFootballUpdating,
+                isConnected = isServerConnected
+            ),
             detail = "双色球 $lotteryDrawsCount 期 · 足球 $footballMatchesCount 场"
         )
         Spacer(Modifier.height(SpacingLg))
@@ -198,7 +214,7 @@ private fun DataSyncCard(
             colors = ButtonDefaults.buttonColors(
                 disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
             ),
-            modifier = Modifier.fillMaxWidth().height(52.dp)
+            modifier = Modifier.fillMaxWidth().height(ButtonHeightLarge)
         ) {
             if (isLotteryUpdating) {
                 CircularProgressIndicator(
@@ -214,6 +230,7 @@ private fun DataSyncCard(
                 Text("更新双色球数据")
             }
         }
+        lotteryUpdateError?.let { ErrorState(it, onRetry = onLotteryServerUpdate) }
 
         // 体彩 section
         Spacer(Modifier.height(SpacingLg))
@@ -239,7 +256,7 @@ private fun DataSyncCard(
             colors = ButtonDefaults.buttonColors(
                 disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
             ),
-            modifier = Modifier.fillMaxWidth().height(52.dp)
+            modifier = Modifier.fillMaxWidth().height(ButtonHeightLarge)
         ) {
             if (isFootballUpdating) {
                 CircularProgressIndicator(
@@ -255,6 +272,7 @@ private fun DataSyncCard(
                 Text("更新体彩足球数据")
             }
         }
+        footballUpdateError?.let { ErrorState(it, onRetry = onFootballServerUpdate) }
     }
 }
 

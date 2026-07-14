@@ -16,6 +16,7 @@ import com.demo.wealth.ui.theme.ButtonShape
 import com.demo.wealth.ui.theme.OnPrimary
 import com.demo.wealth.ui.theme.Primary
 import com.demo.wealth.ui.theme.TextPrimary
+import com.demo.wealth.ui.theme.TouchTargetMin
 import com.demo.wealth.ui.theme.TextSecondary
 
 /**
@@ -45,7 +46,7 @@ fun ChoiceButton(
                 containerColor = Primary,
                 contentColor = OnPrimary
             ),
-            modifier = modifier.defaultMinSize(minHeight = 40.dp)
+            modifier = modifier.defaultMinSize(minHeight = TouchTargetMin)
         ) {
             Text(text, fontWeight = FontWeight.SemiBold)
         }
@@ -57,7 +58,7 @@ fun ChoiceButton(
                 contentColor = TextSecondary
             ),
             border = androidx.compose.foundation.BorderStroke(1.5.dp, BorderDefault),
-            modifier = modifier.defaultMinSize(minHeight = 40.dp)
+            modifier = modifier.defaultMinSize(minHeight = TouchTargetMin)
         ) {
             Text(text, fontWeight = FontWeight.SemiBold)
         }

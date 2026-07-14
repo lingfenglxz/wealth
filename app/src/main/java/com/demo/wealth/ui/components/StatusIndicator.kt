@@ -65,7 +65,7 @@ fun StatusIndicator(
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = null,
+            contentDescription = status.label,
             tint = iconColor,
             modifier = Modifier.size(16.dp)
         )
@@ -89,6 +89,12 @@ enum class ConnectionStatus(val label: String) {
     CONNECTED("已同步"),
     SYNCING("同步中"),
     OFFLINE("未连接")
+}
+
+fun connectionStatus(isSyncing: Boolean, isConnected: Boolean): ConnectionStatus = when {
+    isSyncing -> ConnectionStatus.SYNCING
+    !isConnected -> ConnectionStatus.OFFLINE
+    else -> ConnectionStatus.CONNECTED
 }
 
 private data class Quad(
