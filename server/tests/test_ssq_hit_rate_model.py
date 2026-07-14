@@ -25,7 +25,9 @@ class SsqHitRateModelTest(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         payload = response.json()
         self.assertIn(payload["modelVersion"], main.MODEL_CONFIGS)
-        self.assertEqual(240, payload["recentWindow"])
+        self.assertEqual(500, payload["recentWindow"])
+        self.assertNotIn("budgetPlan", payload)
+        self.assertNotIn("modelComparison", payload)
         self.assertEqual(1, len(payload["predictions"]))
         self.assertEqual(6, len(payload["predictions"][0]["redBalls"]))
         self.assertEqual(3, len(payload["predictions"][0]["blueBalls"]))
@@ -93,7 +95,7 @@ class SsqHitRateModelTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             cache_file = Path(temp_dir) / "ssq_model_evaluation.json"
             cached_report = {
-                "evaluationVersion": "ssq-evaluation-v3",
+                "evaluationVersion": "ssq-evaluation-v4",
                 "latestIssue": self.draws[0].issue,
                 "recentWindow": 60,
                 "sampleLimit": 5,
@@ -116,16 +118,69 @@ class SsqHitRateModelTest(unittest.TestCase):
         self.assertEqual(cached_report, third)
         self.assertEqual(2, build.call_count)
 
-    def test_auto_model_selection_uses_uniform_coverage(self):
+    def test_auto_model_selection_uses_unified_score_and_excludes_random_baseline(self):
         reports = [
-            {"version": "recent_focus_v3", "roi": -0.6, "averageBestRedHits": 1.0, "foldReports": [{"roi": -0.6}] * 6},
-            {"version": "balanced_v2", "roi": -0.1, "averageBestRedHits": 1.2, "foldReports": [{"roi": -0.1}] * 6},
+            {"version": "uniform_random_v0", "selectionScore": 99.0, "selectionScoreMean": 99.0},
+            {"version": "recent_focus_v3", "selectionScore": 42.0, "selectionScoreMean": 44.0},
+            {"version": "balanced_v2", "selectionScore": 45.0, "selectionScoreMean": 45.0},
         ]
 
         selected, reason = main.select_ssq_model(reports)
 
-        self.assertEqual("uniform_random_v0", selected)
-        self.assertIn("无偏随机覆盖", reason)
+        self.assertEqual("balanced_v2", selected)
+        self.assertIn("统一综合分", reason)
+
+    def test_unified_score_uses_hit_metrics_and_penalizes_instability(self):
+        stable = [
+            self.fold_report(red=3.0, blue=0.4, prize=0.3, three=0.5, roi=-0.9),
+            self.fold_report(red=3.0, blue=0.4, prize=0.3, three=0.5, roi=-0.9),
+        ]
+        volatile = [
+            self.fold_report(red=6.0, blue=1.0, prize=1.0, three=1.0, roi=50.0),
+            self.fold_report(red=0.0, blue=0.0, prize=0.0, three=0.0, roi=50.0),
+        ]
+
+        stable_report = main.aggregate_model_evaluation("recent_focus_v3", stable)
+        volatile_report = main.aggregate_model_evaluation("balanced_v2", volatile)
+
+        self.assertEqual(42.5, stable_report["selectionScore"])
+        self.assertEqual(37.5, volatile_report["selectionScore"])
+        self.assertLess(volatile_report["selectionScore"], volatile_report["selectionScoreMean"])
+
+    def test_selection_tie_uses_mean_then_model_configuration_order(self):
+        reports = [
+            {"version": "balanced_v2", "selectionScore": 50.0, "selectionScoreMean": 52.0},
+            {"version": "hit_rate_v4", "selectionScore": 50.0, "selectionScoreMean": 52.0},
+            {"version": "baseline_v1", "selectionScore": 50.0, "selectionScoreMean": 51.0},
+        ]
+
+        selected, _ = main.select_ssq_model(reports)
+
+        self.assertEqual("hit_rate_v4", selected)
+
+    def test_selection_falls_back_when_no_formal_report_is_available(self):
+        selected, reason = main.select_ssq_model([
+            {"version": "uniform_random_v0", "selectionScore": 90.0, "selectionScoreMean": 90.0}
+        ])
+
+        self.assertEqual("recent_focus_v3", selected)
+        self.assertIn("回退", reason)
+
+    @staticmethod
+    def fold_report(red: float, blue: float, prize: float, three: float, roi: float) -> dict:
+        return {
+            "issueCount": 10,
+            "averageBestRedHits": red,
+            "blueHitRate": blue,
+            "prizeHitRate": prize,
+            "atLeastThreeRedRate": three,
+            "averageBetCount": 3.0,
+            "averageDistinctBlueCount": 3.0,
+            "investedAmount": 60.0,
+            "simulatedPrizeAmount": 60.0 * (roi + 1),
+            "roi": roi,
+            "tierCounts": {"first": 0, "second": 0, "third": 0, "fourth": 0, "fifth": 0, "sixth": 0},
+        }
 
     def test_diverse_candidate_selection_prefers_low_overlap(self):
         pool = [

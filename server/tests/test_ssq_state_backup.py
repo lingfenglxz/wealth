@@ -23,30 +23,29 @@ class SsqStateBackupTest(unittest.TestCase):
         self.assertEqual(evaluation, response["modelEvaluation"])
         self.assertEqual(1, len(background_tasks.tasks))
 
-    def test_auto_recommendation_uses_highest_scored_style_group(self):
+    def test_auto_recommendation_uses_evaluation_selection_score(self):
         draws = main.load_cache()[:80]
         evaluation = {
             "latestIssue": draws[0].issue,
-            "recommendedModelVersion": "uniform_random_v0",
-            "modelReports": [],
+            "recommendedModelVersion": "balanced_v2",
+            "selectionReason": "balanced_v2 统一综合分最高",
+            "modelReports": [
+                {"version": "balanced_v2", "selectionScore": 61.25, "selectionScoreMean": 62.0}
+            ],
         }
-        candidates = []
-        for version in main.MODEL_CONFIGS:
-            analysis = main.analyze(draws, 240, version)
-            candidates.extend(main.recommend(draws, 0, 1, 6, 3, analysis, version, 240))
-        expected = max(candidates, key=lambda item: item["score"])
         with tempfile.TemporaryDirectory() as temp_dir:
             state_file = Path(temp_dir) / "ssq_state.json"
             with patch.object(main, "SSQ_STATE_FILE", state_file), \
                     patch.object(main, "get_draws", AsyncMock(return_value=draws)), \
-                    patch.object(main, "load_ssq_model_evaluation", return_value=evaluation):
+                    patch.object(main, "ensure_ssq_model_evaluation", return_value=evaluation):
                 response = TestClient(main.app).get("/api/lottery/ssq/recommendations?modelVersion=auto&limit=80")
 
         self.assertEqual(200, response.status_code)
-        self.assertEqual(expected["modelVersion"], response.json()["modelVersion"])
-        self.assertEqual(expected["score"], response.json()["predictions"][0]["score"])
+        self.assertEqual("balanced_v2", response.json()["modelVersion"])
+        self.assertEqual(61.25, response.json()["predictions"][0]["score"])
         self.assertEqual(evaluation, response.json()["modelEvaluation"])
-        self.assertEqual(evaluation["modelReports"], response.json()["modelComparison"])
+        self.assertNotIn("modelComparison", response.json())
+        self.assertNotIn("budgetPlan", response.json())
 
     def test_recent_style_request_is_not_rewritten_as_auto(self):
         draws = main.load_cache()[:80]
