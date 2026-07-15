@@ -44,6 +44,9 @@ server/data/worldcup_2026_schedule.json
 server/data/imports/
 
 # Design preview screenshots (temporary)
-*.png
 .playwright-mcp/
 .zcode/
+
+# Local Codex work artifacts
+/.omo/
+/.codex/
