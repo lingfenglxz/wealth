@@ -26,7 +26,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -42,7 +41,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.demo.wealth.data.LotteryBallDetail
 import com.demo.wealth.data.LotteryDraw
-import com.demo.wealth.data.LotteryNumberRanking
 import com.demo.wealth.data.LotteryPrediction
 import com.demo.wealth.data.LotteryResearchReport
 import com.demo.wealth.data.LotterySettlement
@@ -64,7 +62,6 @@ import com.demo.wealth.ui.frequentNumbers
 import com.demo.wealth.ui.expectedSsqDrawDate
 import com.demo.wealth.ui.money
 import com.demo.wealth.ui.nextIssueLabel
-import com.demo.wealth.ui.nextVisibleCount
 import com.demo.wealth.ui.overdueNumbers
 import com.demo.wealth.ui.parseBallDetails
 import com.demo.wealth.ui.parseSettlementDetails
@@ -82,7 +79,6 @@ import com.demo.wealth.ui.theme.PrimaryHover
 import com.demo.wealth.ui.theme.SpacingLg
 import com.demo.wealth.ui.theme.SpacingMd
 import com.demo.wealth.ui.theme.SpacingSm
-import com.demo.wealth.ui.theme.Success
 import com.demo.wealth.ui.theme.TextSecondary
 import com.demo.wealth.ui.theme.TouchTargetMin
 
@@ -109,8 +105,7 @@ fun LotteryScreen(
     errorMessage: String? = null,
     modifier: Modifier = Modifier
 ) {
-    var visibleDrawCount by rememberSaveable { mutableIntStateOf(20) }
-    val visibleDraws = remember(draws, visibleDrawCount) { draws.take(visibleDrawCount) }
+    val visibleDraws = remember(draws) { draws.take(10) }
     val drawDatesByIssue = remember(draws) { draws.associate { it.issue to it.date } }
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(SpacingLg),
@@ -159,10 +154,6 @@ fun LotteryScreen(
             item { LotteryBacktestCard(backtest) }
         }
 
-        if (report != null && (report.redRankings.isNotEmpty() || report.blueRankings.isNotEmpty())) {
-            item { NumberRankingCard(report, predictions) }
-        }
-
         // ===== 分组 3: 历史记录 =====
         stickyHeader { StickyGroupLabel("历史记录") }
 
@@ -186,14 +177,6 @@ fun LotteryScreen(
         }
         items(visibleDraws, key = { it.issue }) { draw ->
             DrawCard(draw)
-        }
-        if (draws.size > visibleDrawCount) {
-            item {
-                TextButton(
-                    onClick = { visibleDrawCount = nextVisibleCount(visibleDrawCount, draws.size, 20) },
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("加载更多（${draws.size - visibleDrawCount} 期）") }
-            }
         }
     }
 }
@@ -257,7 +240,7 @@ private fun PredictionCard(prediction: LotteryPrediction, sourceDate: String?) {
         }
         Spacer(Modifier.height(SpacingSm))
         Text(
-            sourceDate?.let(::expectedSsqDrawDate)?.let { "预计开奖：$it" } ?: "预计开奖日期待更新",
+            sourceDate?.let(::expectedSsqDrawDate)?.let { "开奖时间：$it" } ?: "开奖时间待更新",
             style = MaterialTheme.typography.bodySmall,
             color = TextSecondary
         )
@@ -406,8 +389,8 @@ private fun LotteryAnalysisCard(
         val latestDraw = latest ?: return@Panel
         val targetIssue = prediction?.targetIssue?.ifBlank { null } ?: nextIssueLabel(latestDraw.issue)
         Text(
-            expectedSsqDrawDate(latestDraw.date)?.let { "目标期号：第 $targetIssue 期 · 预计开奖：$it" }
-                ?: "目标期号：第 $targetIssue 期 · 预计开奖日期待更新",
+            expectedSsqDrawDate(latestDraw.date)?.let { "目标期号：第 $targetIssue 期 · 开奖时间：$it" }
+                ?: "目标期号：第 $targetIssue 期 · 开奖时间待更新",
             style = MaterialTheme.typography.bodyMedium
         )
         Spacer(Modifier.height(SpacingSm))
@@ -474,64 +457,6 @@ private fun LotteryBacktestCard(report: com.demo.wealth.data.LotteryBacktestRepo
         MetricRow("蓝球命中率", percent(report.blueHitRate), "至少3红", percent(report.atLeastThreeRedRate))
         Spacer(Modifier.height(SpacingSm))
         MetricRow("模拟中奖率", percent(report.prizeHitRate), "平均注数", "%.1f".format(report.averageBetCount))
-    }
-}
-
-// ===== NumberRankingCard =====
-@Composable
-private fun NumberRankingCard(report: LotteryResearchReport, predictions: List<LotteryPrediction>) {
-    var color by rememberSaveable(report) { mutableStateOf("red") }
-    var sortMode by rememberSaveable(report) { mutableStateOf("total") }
-    val source = if (color == "red") report.redRankings else report.blueRankings
-    val sorted = remember(source, sortMode) {
-        when (sortMode) {
-            "recent" -> source.sortedWith(compareByDescending<LotteryNumberRanking> { it.recentScore }.thenBy { it.number })
-            "omission" -> source.sortedWith(compareByDescending<LotteryNumberRanking> { it.omissionScore }.thenBy { it.number })
-            else -> source.sortedBy { it.rank }
-        }
-    }
-    var selectedNumber by remember(color, report) { mutableIntStateOf(sorted.firstOrNull()?.number ?: 1) }
-    val selected = sorted.firstOrNull { it.number == selectedNumber } ?: sorted.firstOrNull()
-    val currentNumbers = remember(color, predictions) {
-        if (color == "red") predictions.flatMap { it.redBalls }.toSet() else predictions.flatMap { it.blueBalls }.toSet()
-    }
-
-    Panel {
-        Text("号码榜单", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(SpacingSm))
-        Row(horizontalArrangement = Arrangement.spacedBy(SpacingSm)) {
-            ChoiceButton("红球榜", selected = color == "red") { color = "red" }
-            ChoiceButton("蓝球榜", selected = color == "blue") { color = "blue" }
-        }
-        Spacer(Modifier.height(SpacingSm))
-        Row(horizontalArrangement = Arrangement.spacedBy(SpacingSm)) {
-            listOf("total" to "综合", "recent" to "近期", "omission" to "遗漏").forEach { (value, label) ->
-                ChoiceButton(label, selected = sortMode == value) { sortMode = value }
-            }
-        }
-        Spacer(Modifier.height(SpacingSm))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(SpacingSm)) {
-            items(sorted, key = { "${it.color}-${it.number}" }) { item ->
-                ChoiceButton(
-                    text = "${item.number.toString().padStart(2, '0')} #${item.rank}",
-                    selected = item.number == selected?.number,
-                    onClick = { selectedNumber = item.number }
-                )
-            }
-        }
-        selected?.let { item ->
-            Spacer(Modifier.height(SpacingMd))
-            Text("${if (color == "red") "红球" else "蓝球"} ${item.number.toString().padStart(2, '0')} · 综合排名 #${item.rank}", fontWeight = FontWeight.SemiBold)
-            Text(
-                if (item.number in currentNumbers) "已进入本期推荐" else "本期未入选",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (item.number in currentNumbers) Success else TextSecondary
-            )
-            Spacer(Modifier.height(SpacingSm))
-            Text("综合 ${"%.2f".format(item.totalScore)} · 全量 ${"%.2f".format(item.fullFrequencyScore)} · 近期 ${"%.2f".format(item.recentScore)} · 遗漏 ${"%.2f".format(item.omissionScore)}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-            Text("近30期 ${item.recent30Count} 次 · 近60期 ${item.recent60Count} 次 · 当前遗漏 ${item.missCount} 期", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-            Text(item.summary, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-        }
     }
 }
 

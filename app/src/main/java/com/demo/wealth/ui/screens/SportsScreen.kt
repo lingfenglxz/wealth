@@ -273,6 +273,14 @@ private fun FootballMatchCardFlat(
                     MetricCard(label, "%.2f".format(value), modifier = Modifier.weight(1f))
                 }
             }
+            if (match.source == "public-market-snapshot-2026-07-14") {
+                Spacer(Modifier.height(SpacingSm))
+                Text(
+                    "赔率来源：公开市场快照（2026-07-14），非中国竞彩网官方赔率",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+            }
         }
 
         // 推荐摘要（扁平化，直接展示，不再嵌套展开）

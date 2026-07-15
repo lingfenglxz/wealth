@@ -8,11 +8,41 @@ import com.demo.wealth.ui.latestRecommendationRun
 import com.demo.wealth.ui.parseHadOdds
 import com.demo.wealth.ui.nextVisibleCount
 import com.demo.wealth.ui.expectedSsqDrawDate
+import java.io.File
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class UiBehaviorTest {
+    @Test
+    fun lotteryScreenShowsOnlyTenDrawsWithoutRankingOrLoadMore() {
+        val source = File("src/main/java/com/demo/wealth/ui/screens/LotteryScreen.kt").readText()
+
+        assertTrue(source.contains("draws.take(10)"))
+        assertFalse(source.contains("NumberRankingCard"))
+        assertFalse(source.contains("号码榜单"))
+        assertFalse(source.contains("加载更多"))
+    }
+
+    @Test
+    fun lotteryScreenUsesDrawTimeCopy() {
+        val source = File("src/main/java/com/demo/wealth/ui/screens/LotteryScreen.kt").readText()
+
+        assertFalse(source.contains("预计开奖"))
+        assertTrue(source.contains("开奖时间："))
+        assertTrue(source.contains("开奖时间待更新"))
+    }
+
+    @Test
+    fun sportsScreenLabelsPublicMarketOdds() {
+        val source = File("src/main/java/com/demo/wealth/ui/screens/SportsScreen.kt").readText()
+
+        assertTrue(source.contains("公开市场快照（2026-07-14）"))
+        assertTrue(source.contains("非中国竞彩网官方赔率"))
+    }
+
     @Test
     fun visibleCountAdvancesByPageWithoutPassingTotal() {
         assertEquals(40, nextVisibleCount(current = 20, total = 55, pageSize = 20))

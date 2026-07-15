@@ -32,6 +32,15 @@ FOOTBALL_TEAM_RATINGS_FILE = DATA_DIR / "football_team_ratings.json"
 FOOTBALL_MATCH_FACTS_FILE = DATA_DIR / "football_match_facts.json"
 WORLDCUP_FALLBACK_FILE = DATA_DIR / "worldcup_2026_matches.json"
 WORLDCUP_SCHEDULE_FILE = DATA_DIR / "worldcup_2026_schedule.json"
+VERIFIED_FOOTBALL_RESULTS = [
+    {
+        "matchId": "wc2026-101",
+        "fullTimeScore": "0:2",
+        "halfTimeScore": "",
+        "source": "fifa-nbc-verified",
+        "updatedAt": "2026-07-14",
+    }
+]
 CWL_URL = "https://www.cwl.gov.cn/cwl_admin/front/cwlkj/search/kjxx/findDrawNotice"
 SPORTTERY_FOOTBALL_URL = "https://webapi.sporttery.cn/gateway/jc/football/getMatchCalculatorV1.qry"
 FIFA_WORLDCUP_SCHEDULE_URL = "https://https-www-fifa.com/en/articles/View-the-FIFA-World-Cup-26%E2%84%A2-match-schedule"
@@ -637,7 +646,10 @@ async def get_football_matches(refresh: bool) -> tuple[list[FootballMatch], str,
             official = await fetch_sporttery_football_matches()
             if official:
                 schedule = await fetch_openfootball_worldcup_matches() or await fetch_worldcup_schedule_matches()
-                matches = merge_schedule_and_odds(schedule or load_worldcup_schedule_fallback(), official, include_extra=False)
+                base = merge_schedule_and_odds(
+                    schedule or load_worldcup_schedule_fallback(), load_worldcup_fallback(), include_extra=False
+                )
+                matches = merge_schedule_and_odds(base, official, include_extra=False)
                 ratings = await fetch_fifa_team_ratings()
                 matches = apply_team_ratings(matches, ratings or load_team_ratings())
                 save_football_cache(matches)
@@ -645,12 +657,12 @@ async def get_football_matches(refresh: bool) -> tuple[list[FootballMatch], str,
         except Exception as error:
             cached = load_football_cache()
             if cached:
-                return merge_schedule_and_odds(cached, load_worldcup_fallback(), include_extra=False), "cache", f"官方竞彩抓取失败，使用缓存：{short_error(error)}"
+                return merge_schedule_and_odds(load_worldcup_schedule_fallback(), cached, include_extra=False), "cache", f"官方竞彩抓取失败，使用缓存：{short_error(error)}"
             fallback = apply_team_ratings(merge_schedule_and_odds(load_worldcup_schedule_fallback(), load_worldcup_fallback(), include_extra=False), load_team_ratings())
             return fallback, "fallback", f"官方竞彩抓取失败，使用内置世界杯赛程：{short_error(error)}"
     cached = load_football_cache()
     if cached:
-        return merge_schedule_and_odds(cached, load_worldcup_fallback(), include_extra=False), "cache", "使用本地足球赛事缓存"
+        return merge_schedule_and_odds(load_worldcup_schedule_fallback(), cached, include_extra=False), "cache", "使用本地足球赛事缓存"
     fallback = apply_team_ratings(merge_schedule_and_odds(load_worldcup_schedule_fallback(), load_worldcup_fallback(), include_extra=False), load_team_ratings())
     return fallback, "fallback", "使用内置世界杯赛程"
 
@@ -720,7 +732,8 @@ def load_worldcup_fallback() -> list[FootballMatch]:
 
 def load_worldcup_schedule_fallback() -> list[FootballMatch]:
     from_file = read_football_file(WORLDCUP_SCHEDULE_FILE, "schedule")
-    return from_file or build_static_worldcup_schedule()
+    schedule = from_file or build_static_worldcup_schedule()
+    return merge_schedule_and_odds(schedule, load_worldcup_fallback(), include_extra=False)
 
 
 def read_football_file(path: Path, source: str) -> list[FootballMatch]:
@@ -908,6 +921,9 @@ def apply_team_ratings(matches: list[FootballMatch], ratings: dict[str, dict[str
         return matches
     updated: list[FootballMatch] = []
     for match in matches:
+        if match.source.startswith("public-market-snapshot-"):
+            updated.append(match)
+            continue
         home_rating = ratings.get(match.homeTeam)
         away_rating = ratings.get(match.awayTeam)
         strength = dict(match.teamStrength)
@@ -1090,10 +1106,10 @@ STATIC_WORLDCUP_2026_SCHEDULE = """
 098|2026-07-10|Quarter-final|Match 93 Winner|Match 94 Winner|Los Angeles Stadium
 099|2026-07-11|Quarter-final|Match 91 Winner|Match 92 Winner|Miami Stadium
 100|2026-07-11|Quarter-final|Match 95 Winner|Match 96 Winner|Kansas City Stadium
-101|2026-07-14|Semi-final|Match 97 Winner|Match 98 Winner|Dallas Stadium
-102|2026-07-15|Semi-final|Match 99 Winner|Match 100 Winner|Atlanta Stadium
-103|2026-07-18|Third-place|Match 101 Loser|Match 102 Loser|Miami Stadium
-104|2026-07-19|Final|Match 101 Winner|Match 102 Winner|New York New Jersey Stadium
+101|2026-07-14|Semi-final|France|Spain|Dallas Stadium
+102|2026-07-15|Semi-final|England|Argentina|Atlanta Stadium
+103|2026-07-18|Third-place|France|Match 102 Loser|Miami Stadium
+104|2026-07-19|Final|Spain|Match 102 Winner|New York New Jersey Stadium
 """.strip()
 
 
@@ -1166,6 +1182,13 @@ def home_has_host_advantage(home: str, city: str) -> bool:
     return home == "USA" and city in {"Los Angeles", "Seattle"}
 
 
+def is_knockout_team_placeholder(team: str) -> bool:
+    return bool(
+        re.fullmatch(r"[WL]\d{2,3}", team)
+        or re.fullmatch(r"Match \d{1,3} (?:Winner|Loser)", team)
+    )
+
+
 def merge_schedule_and_odds(schedule: list[FootballMatch], odds_matches: list[FootballMatch], include_extra: bool = True) -> list[FootballMatch]:
     by_num = {match.matchNum.zfill(3): match for match in schedule}
     for odds in odds_matches:
@@ -1178,15 +1201,15 @@ def merge_schedule_and_odds(schedule: list[FootballMatch], odds_matches: list[Fo
                 leagueName=base.leagueName or odds.leagueName,
                 phase=base.phase or odds.phase,
                 kickoffTime=base.kickoffTime or odds.kickoffTime,
-                homeTeam=base.homeTeam or odds.homeTeam,
-                awayTeam=base.awayTeam or odds.awayTeam,
+                homeTeam=odds.homeTeam if is_knockout_team_placeholder(base.homeTeam) and odds.homeTeam else base.homeTeam or odds.homeTeam,
+                awayTeam=odds.awayTeam if is_knockout_team_placeholder(base.awayTeam) and odds.awayTeam else base.awayTeam or odds.awayTeam,
                 neutralVenue=base.neutralVenue,
                 handicap=odds.handicap,
-                teamStrength=odds.teamStrength or base.teamStrength,
-                pools=odds.pools,
+                teamStrength=odds.teamStrength if odds.pools else base.teamStrength,
+                pools=odds.pools or base.pools,
                 stadium=base.stadium or odds.stadium,
                 city=base.city or odds.city,
-                source=odds.source,
+                source=odds.source if odds.pools or not base.pools else base.source,
                 updatedAt=max(base.updatedAt, odds.updatedAt),
             )
         elif include_extra:
@@ -1338,7 +1361,11 @@ def build_football_recommendations(
                     "reasons": football_reasons(match, play_type, selection, odds, metrics, profile),
                 }
             )
-    sorted_rows = sorted(rows, key=lambda item: (-item["confidence"], item["kickoffTime"], item["playType"]))
+    sorted_rows = sorted(
+        rows,
+        key=lambda item: (item["kickoffTime"], item["confidence"], item["playType"]),
+        reverse=True,
+    )
     selected: list[dict[str, Any]] = []
     for play_type in play_types:
         item = next((row for row in sorted_rows if row["playType"] == play_type), None)
@@ -1540,7 +1567,9 @@ def load_football_recommendation_history() -> list[dict[str, Any]]:
 
 
 def load_football_results() -> list[dict[str, Any]]:
-    return load_json_list(FOOTBALL_RESULTS_FILE)
+    merged = {item["matchId"]: item for item in VERIFIED_FOOTBALL_RESULTS}
+    merged.update({item["matchId"]: item for item in load_json_list(FOOTBALL_RESULTS_FILE) if item.get("matchId")})
+    return sorted(merged.values(), key=lambda item: item["matchId"])
 
 
 def save_football_odds_snapshots(matches: list[FootballMatch], source_status: str, captured_at: str) -> None:

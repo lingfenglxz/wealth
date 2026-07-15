@@ -213,6 +213,27 @@ class SportsFootballApiTest(unittest.TestCase):
         self.assertLess(adjusted["expectedGoals"]["home"], baseline["expectedGoals"]["home"])
         self.assertLess(adjusted["expectedGoals"]["away"], baseline["expectedGoals"]["away"])
 
+    def test_market_snapshot_match_keeps_its_calibrated_team_strengths(self):
+        match = main.FootballMatch(
+            matchId="wc2026-102", matchNum="102", leagueName="FIFA World Cup 2026",
+            phase="Semi-final", kickoffTime="2026-07-16T03:00:00+08:00",
+            homeTeam="England", awayTeam="Argentina", neutralVenue=True,
+            handicap=0, teamStrength={"home": 0.88, "away": 0.90},
+            pools={"had": {"H": 2.50, "D": 3.10, "A": 2.90}},
+            stadium="Atlanta Stadium", city="Atlanta",
+            source="public-market-snapshot-2026-07-14", updatedAt="2026-07-14",
+        )
+
+        updated = main.apply_team_ratings(
+            [match],
+            {
+                "England": {"strength": 0.9775},
+                "Argentina": {"strength": 0.9817},
+            },
+        )[0]
+
+        self.assertEqual({"home": 0.88, "away": 0.90}, updated.teamStrength)
+
     def test_schedule_merge_keeps_odds_and_adds_schedule_only_matches(self):
         schedule = [
             main.FootballMatch(
@@ -276,6 +297,97 @@ class SportsFootballApiTest(unittest.TestCase):
         self.assertIn("had", merged[0].pools)
         self.assertEqual("Estadio Azteca", merged[0].stadium)
         self.assertEqual({}, merged[1].pools)
+
+    def test_schedule_merge_replaces_knockout_placeholders_with_actual_teams(self):
+        schedule = [
+            main.FootballMatch(
+                matchId="wc2026-101", matchNum="101", leagueName="FIFA World Cup 2026",
+                phase="Semi-final", kickoffTime="2026-07-15T03:00:00+08:00",
+                homeTeam="W97", awayTeam="Match 98 Winner", neutralVenue=True,
+                handicap=0, teamStrength={"home": 0.68, "away": 0.68}, pools={},
+                stadium="Dallas Stadium", city="Dallas", source="schedule", updatedAt="2026-06-08",
+            )
+        ]
+        actual = [
+            main.FootballMatch(
+                matchId="verified-101", matchNum="101", leagueName="FIFA World Cup 2026",
+                phase="Semi-final", kickoffTime="2026-07-15T03:00:00+08:00",
+                homeTeam="France", awayTeam="Spain", neutralVenue=True,
+                handicap=0, teamStrength={"home": 0.91, "away": 0.87}, pools={},
+                stadium="", city="", source="market-snapshot", updatedAt="2026-07-14",
+            )
+        ]
+
+        merged = main.merge_schedule_and_odds(schedule, actual)
+
+        self.assertEqual("France", merged[0].homeTeam)
+        self.assertEqual("Spain", merged[0].awayTeam)
+
+    def test_schedule_merge_keeps_existing_odds_when_incoming_pool_is_empty(self):
+        schedule = [
+            main.FootballMatch(
+                matchId="wc2026-102", matchNum="102", leagueName="FIFA World Cup 2026",
+                phase="Semi-final", kickoffTime="2026-07-16T03:00:00+08:00",
+                homeTeam="England", awayTeam="Argentina", neutralVenue=True,
+                handicap=0, teamStrength={"home": 0.88, "away": 0.90},
+                pools={"had": {"H": 2.50, "D": 3.10, "A": 2.90}},
+                stadium="Atlanta Stadium", city="Atlanta", source="market-snapshot", updatedAt="2026-07-14",
+            )
+        ]
+        empty = [
+            main.FootballMatch(
+                matchId="schedule-102", matchNum="102", leagueName="FIFA World Cup 2026",
+                phase="Semi-final", kickoffTime="2026-07-16T03:00:00+08:00",
+                homeTeam="England", awayTeam="Argentina", neutralVenue=True,
+                handicap=0, teamStrength={"home": 0.88, "away": 0.90}, pools={},
+                stadium="", city="", source="schedule", updatedAt="2026-07-15",
+            )
+        ]
+
+        merged = main.merge_schedule_and_odds(schedule, empty)
+
+        self.assertEqual({"had": {"H": 2.50, "D": 3.10, "A": 2.90}}, merged[0].pools)
+        self.assertEqual({"home": 0.88, "away": 0.90}, merged[0].teamStrength)
+        self.assertEqual("market-snapshot", merged[0].source)
+
+    def test_verified_semifinal_fallback_data_and_recommendation(self):
+        matches = {match.matchNum: match for match in main.load_worldcup_fallback()}
+
+        self.assertEqual(("France", "Spain"), (matches["101"].homeTeam, matches["101"].awayTeam))
+        self.assertEqual({"H": 2.30, "D": 3.25, "A": 3.10}, matches["101"].pools["had"])
+        self.assertEqual(("England", "Argentina"), (matches["102"].homeTeam, matches["102"].awayTeam))
+        self.assertEqual({"H": 2.50, "D": 3.10, "A": 2.90}, matches["102"].pools["had"])
+        self.assertEqual("France", matches["103"].homeTeam)
+        self.assertEqual("Spain", matches["104"].homeTeam)
+        result = {item["matchId"]: item for item in main.load_football_results()}["wc2026-101"]
+        self.assertEqual("0:2", result["fullTimeScore"])
+
+        recommendation = main.build_football_recommendations(
+            [matches["102"]], ["had"], limit=1, source_status="fallback"
+        )[0]
+        self.assertEqual("H", recommendation["selection"])
+        self.assertAlmostEqual(0.3595, recommendation["modelProbability"], places=4)
+        self.assertAlmostEqual(-0.1013, recommendation["edge"], places=4)
+
+    def test_all_play_recommendations_keep_the_latest_semifinal_within_default_limit(self):
+        fallback = {match.matchNum: match for match in main.load_worldcup_fallback()}
+        older = fallback["001"]
+        matches = [
+            main.FootballMatch(
+                **{
+                    **vars(older),
+                    "matchId": f"older-{index}",
+                    "matchNum": f"{index:03d}",
+                }
+            )
+            for index in range(1, 13)
+        ] + [fallback["102"]]
+
+        recommendations = main.build_football_recommendations(
+            matches, list(main.FOOTBALL_PLAY_TYPES), limit=12, source_status="fallback"
+        )
+
+        self.assertIn("102", {item["matchNum"] for item in recommendations})
 
     def test_official_non_worldcup_odds_are_not_added_to_worldcup_schedule(self):
         schedule = main.build_static_worldcup_schedule()[:1]

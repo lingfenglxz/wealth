@@ -2126,19 +2126,25 @@
       "leagueName": "FIFA World Cup 2026",
       "phase": "Semi-final",
       "kickoffTime": "2026-07-15T03:00:00+08:00",
-      "homeTeam": "W97",
-      "awayTeam": "W98",
+      "homeTeam": "France",
+      "awayTeam": "Spain",
       "neutralVenue": true,
       "handicap": 0,
       "teamStrength": {
-        "home": 0.68,
-        "away": 0.68
+        "home": 0.91,
+        "away": 0.87
       },
-      "pools": {},
+      "pools": {
+        "had": {
+          "H": 2.3,
+          "D": 3.25,
+          "A": 3.1
+        }
+      },
       "stadium": "Dallas Stadium",
       "city": "Dallas",
-      "source": "openfootball",
-      "updatedAt": "2026-06-08"
+      "source": "public-market-snapshot-2026-07-14",
+      "updatedAt": "2026-07-14"
     },
     {
       "matchId": "wc2026-102",
@@ -2146,19 +2152,25 @@
       "leagueName": "FIFA World Cup 2026",
       "phase": "Semi-final",
       "kickoffTime": "2026-07-16T03:00:00+08:00",
-      "homeTeam": "W99",
-      "awayTeam": "W100",
+      "homeTeam": "England",
+      "awayTeam": "Argentina",
       "neutralVenue": true,
       "handicap": 0,
       "teamStrength": {
-        "home": 0.68,
-        "away": 0.68
+        "home": 0.88,
+        "away": 0.9
       },
-      "pools": {},
+      "pools": {
+        "had": {
+          "H": 2.5,
+          "D": 3.1,
+          "A": 2.9
+        }
+      },
       "stadium": "Atlanta Stadium",
       "city": "Atlanta",
-      "source": "openfootball",
-      "updatedAt": "2026-06-08"
+      "source": "public-market-snapshot-2026-07-14",
+      "updatedAt": "2026-07-14"
     },
     {
       "matchId": "wc2026-103",
@@ -2166,19 +2178,19 @@
       "leagueName": "FIFA World Cup 2026",
       "phase": "Match for third place",
       "kickoffTime": "2026-07-19T05:00:00+08:00",
-      "homeTeam": "L101",
+      "homeTeam": "France",
       "awayTeam": "L102",
       "neutralVenue": true,
       "handicap": 0,
       "teamStrength": {
-        "home": 0.68,
+        "home": 0.91,
         "away": 0.68
       },
       "pools": {},
       "stadium": "Miami Stadium",
       "city": "Miami",
-      "source": "openfootball",
-      "updatedAt": "2026-06-08"
+      "source": "fifa-nbc-verified-2026-07-14",
+      "updatedAt": "2026-07-14"
     },
     {
       "matchId": "wc2026-104",
@@ -2186,19 +2198,19 @@
       "leagueName": "FIFA World Cup 2026",
       "phase": "Final",
       "kickoffTime": "2026-07-20T03:00:00+08:00",
-      "homeTeam": "W101",
+      "homeTeam": "Spain",
       "awayTeam": "W102",
       "neutralVenue": true,
       "handicap": 0,
       "teamStrength": {
-        "home": 0.68,
+        "home": 0.87,
         "away": 0.68
       },
       "pools": {},
       "stadium": "New York/New Jersey (East Rutherford)",
       "city": "New York/New Jersey",
-      "source": "openfootball",
-      "updatedAt": "2026-06-08"
+      "source": "fifa-nbc-verified-2026-07-14",
+      "updatedAt": "2026-07-14"
     }
   ]
 }

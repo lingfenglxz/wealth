@@ -147,6 +147,20 @@ class SsqHitRateModelTest(unittest.TestCase):
         self.assertEqual(37.5, volatile_report["selectionScore"])
         self.assertLess(volatile_report["selectionScore"], volatile_report["selectionScoreMean"])
 
+    def test_latest_recent_focus_fold_scores_reproduce_15_91(self):
+        expected_scores = [15.83, 16.42, 17.36, 15.78, 16.28, 14.92]
+        folds = [
+            self.fold_report(red=score / 40.0 * 6.0, blue=0.0, prize=0.0, three=0.0, roi=-1.0)
+            for score in expected_scores
+        ]
+
+        report = main.aggregate_model_evaluation("recent_focus_v3", folds)
+
+        self.assertEqual(expected_scores, report["foldSelectionScores"])
+        self.assertEqual(16.10, report["selectionScoreMean"])
+        self.assertEqual(0.74, report["selectionScoreStdDev"])
+        self.assertEqual(15.91, report["selectionScore"])
+
     def test_selection_tie_uses_mean_then_model_configuration_order(self):
         reports = [
             {"version": "balanced_v2", "selectionScore": 50.0, "selectionScoreMean": 52.0},
