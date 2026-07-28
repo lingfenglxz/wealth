@@ -2593,3 +2593,11 @@ def next_issue(issue: str) -> str:
         return str(int(issue) + 1).zfill(len(issue))
     except ValueError:
         return "next"
+
+
+if __name__ == "__main__":
+    import os
+
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
