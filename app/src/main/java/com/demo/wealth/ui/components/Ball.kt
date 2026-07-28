@@ -51,7 +51,7 @@ fun Ball(
         Text(
             text = text,
             color = Color.White,
-            style = if (size >= 36) MaterialTheme.typography.labelLarge else MaterialTheme.typography.labelSmall,
+            style = if (size >= 36) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold
         )
     }
@@ -80,7 +80,7 @@ fun BallSmall(
         Text(
             text = text,
             color = Color.White,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold
         )
     }

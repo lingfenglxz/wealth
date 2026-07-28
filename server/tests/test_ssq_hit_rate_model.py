@@ -24,7 +24,7 @@ class SsqHitRateModelTest(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         payload = response.json()
-        self.assertIn(payload["modelVersion"], main.MODEL_CONFIGS)
+        self.assertEqual(main.ENSEMBLE_MODEL_VERSION, payload["modelVersion"])
         self.assertEqual(500, payload["recentWindow"])
         self.assertNotIn("budgetPlan", payload)
         self.assertNotIn("modelComparison", payload)

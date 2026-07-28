@@ -550,7 +550,7 @@ class WealthRepository(context: Context) {
             if (text.isBlank()) throw IOException("官网返回空内容")
             text
         } catch (error: SocketTimeoutException) {
-            throw IOException("连接官网超时", error)
+            throw IOException("服务响应超时，请稍后重试", error)
         } finally {
             connection.disconnect()
         }

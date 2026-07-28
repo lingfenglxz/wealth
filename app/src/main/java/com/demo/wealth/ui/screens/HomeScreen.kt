@@ -22,11 +22,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.demo.wealth.data.FootballMatchEntity
 import com.demo.wealth.data.LotteryPrediction
 import com.demo.wealth.data.LotteryDraw
 import com.demo.wealth.data.LotterySettlement
-import com.demo.wealth.domain.sports.FootballDisplayNames
 import com.demo.wealth.ui.components.Ball
 import com.demo.wealth.ui.components.MetaPill
 import com.demo.wealth.ui.components.Panel
@@ -60,7 +58,6 @@ import androidx.compose.ui.draw.clip
 fun HomeScreen(
     predictions: List<LotteryPrediction>,
     settlements: List<LotterySettlement>,
-    footballMatches: List<FootballMatchEntity>,
     draws: List<LotteryDraw>,
     modifier: Modifier = Modifier
 ) {
@@ -77,12 +74,6 @@ fun HomeScreen(
             val prediction = predictions.firstOrNull()
             val sourceDate = draws.firstOrNull { it.issue == prediction?.sourceIssue }?.date
             HomePredictionCard(prediction, sourceDate)
-        }
-
-        // 足球赛事摘要
-        item {
-            SectionHeader("体彩世界杯")
-            FootballSummaryCard(footballMatches)
         }
     }
 }
@@ -197,7 +188,7 @@ private fun HomePredictionCard(prediction: LotteryPrediction?, sourceDate: Strin
             }
             Spacer(Modifier.height(SpacingSm))
             Text(
-                sourceDate?.let(::expectedSsqDrawDate)?.let { "预计开奖：$it" } ?: "预计开奖日期待更新",
+                sourceDate?.let(::expectedSsqDrawDate)?.let { "开奖时间：$it" } ?: "开奖时间待更新",
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary
             )
@@ -228,50 +219,6 @@ private fun HomePredictionCard(prediction: LotteryPrediction?, sourceDate: Strin
                 )
                 MetaPill("模型 ${prediction.modelVersion}", InfoContainer, OnInfoContainer)
             }
-        }
-    }
-}
-
-/**
- * 足球赛事摘要卡 - 更紧凑
- */
-@Composable
-private fun FootballSummaryCard(matches: List<FootballMatchEntity>) {
-    Panel {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "足球彩票",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            if (matches.isNotEmpty()) {
-                MetaPill("${matches.size} 场", InfoContainer, OnInfoContainer)
-            }
-        }
-        Spacer(Modifier.height(SpacingSm))
-        if (matches.isEmpty()) {
-            Text(
-                "暂无世界杯赛事，请到“数据”页更新。",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary
-            )
-        } else {
-            val next = matches.first()
-            Text(
-                "${FootballDisplayNames.team(next.homeTeam)} vs ${FootballDisplayNames.team(next.awayTeam)}",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                "${FootballDisplayNames.phase(next.phase)} · ${next.kickoffTime}",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary,
-                modifier = Modifier.padding(top = 2.dp)
-            )
         }
     }
 }

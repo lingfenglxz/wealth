@@ -121,9 +121,8 @@ fun WealthApp(viewModel: WealthViewModel = viewModel()) {
 private fun HomeRoute(viewModel: WealthViewModel) {
     val predictions by viewModel.predictions.collectAsStateWithLifecycle()
     val settlements by viewModel.lotterySettlements.collectAsStateWithLifecycle()
-    val footballMatches by viewModel.footballMatches.collectAsStateWithLifecycle()
     val draws by viewModel.lotteryDraws.collectAsStateWithLifecycle()
-    HomeScreen(predictions, settlements, footballMatches, draws)
+    HomeScreen(predictions, settlements, draws)
 }
 
 @Composable
@@ -144,12 +143,7 @@ private fun LotteryRoute(viewModel: WealthViewModel) {
 
 @Composable
 private fun SportsRoute(viewModel: WealthViewModel) {
-    val matches by viewModel.footballMatches.collectAsStateWithLifecycle()
-    val recommendations by viewModel.footballRecommendations.collectAsStateWithLifecycle()
-    val history by viewModel.footballRecommendationHistory.collectAsStateWithLifecycle()
-    val generating by viewModel.isFootballGenerating.collectAsStateWithLifecycle()
-    val error by viewModel.footballGenerationError.collectAsStateWithLifecycle()
-    SportsScreen(matches, recommendations, history, viewModel::generateFootballRecommendations, generating, error)
+    SportsScreen()
 }
 
 @Composable

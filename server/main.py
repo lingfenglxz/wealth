@@ -5,6 +5,7 @@ import json
 import math
 import random
 import re
+import threading
 from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -62,10 +63,17 @@ MODEL_CONFIGS = {
     "baseline_v1": {"full": 0.55, "recent": 0.0, "miss": 0.35, "center": 0.10},
 }
 UNIFORM_RANDOM_MODEL_VERSION = "uniform_random_v0"
+ENSEMBLE_MODEL_VERSION = "ensemble_fusion"
 EVALUATION_MODEL_VERSIONS = [*MODEL_CONFIGS, UNIFORM_RANDOM_MODEL_VERSION]
 SSQ_EVALUATION_VERSION = "ssq-evaluation-v4"
 SSQ_EVALUATION_SAMPLE_LIMIT = 60
 SSQ_EVALUATION_FOLD_COUNT = 6
+
+# 模型评估后台任务状态：避免推荐路由在前台同步触发全量回测导致超时
+_ssq_evaluation_lock = threading.Lock()
+_ssq_evaluation_running = False
+_ssq_evaluation_done = threading.Event()
+_ssq_evaluation_result: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -120,7 +128,7 @@ async def ssq_draws(
     state = refresh_ssq_state_settlements(draws)
     evaluation = load_ssq_model_evaluation()
     if refresh and len(draws) >= 30:
-        background_tasks.add_task(ensure_ssq_model_evaluation, draws)
+        background_tasks.add_task(run_ssq_model_evaluation_async, draws)
     return {
         "source": "cwl",
         "count": len(draws),
@@ -151,7 +159,7 @@ async def ssq_recommendations(
             "analysis": analyze(draws, recentWindow, modelVersion),
             "predictions": [],
         }
-    evaluation = ensure_ssq_model_evaluation(
+    evaluation = get_or_wait_ssq_model_evaluation(
         draws,
         recent_window=recentWindow,
         single_count=singleCount,
@@ -159,11 +167,12 @@ async def ssq_recommendations(
         red_count=redCount,
         blue_count=blueCount,
     )
+    model_reports = evaluation.get("modelReports") or []
+    fusion_weights = compute_fusion_weights(model_reports)
     if modelVersion == "auto":
-        recommended = str(evaluation.get("recommendedModelVersion") or "recent_focus_v3")
-        model_version = recommended if recommended in MODEL_CONFIGS else "recent_focus_v3"
+        model_version = ENSEMBLE_MODEL_VERSION
     else:
-        model_version = modelVersion if modelVersion in MODEL_CONFIGS else "recent_focus_v3"
+        model_version = modelVersion if modelVersion in MODEL_CONFIGS else ENSEMBLE_MODEL_VERSION
     analysis = analyze(draws, recentWindow, model_version)
     predictions = recommend(
         draws,
@@ -174,10 +183,18 @@ async def ssq_recommendations(
         analysis,
         model_version,
         recentWindow,
+        fusion_weights=fusion_weights,
     )
-    model_reports = evaluation.get("modelReports") or []
-    selected_backtest = next((item for item in model_reports if item["version"] == model_version), None)
-    selection_score = float((selected_backtest or {}).get("selectionScore", 0.0))
+    if model_version == ENSEMBLE_MODEL_VERSION:
+        selection_score = compute_fused_selection_score(model_reports, fusion_weights)
+        selected_backtest = {
+            "version": ENSEMBLE_MODEL_VERSION,
+            "selectionScore": round(selection_score, 2),
+            "fusionWeights": {version: round(weight, 4) for version, weight in fusion_weights.items()},
+        }
+    else:
+        selected_backtest = next((item for item in model_reports if item["version"] == model_version), None)
+        selection_score = float((selected_backtest or {}).get("selectionScore", 0.0))
     for prediction in predictions:
         prediction["score"] = selection_score
     number_rankings = build_number_rankings(draws, model_version, recentWindow)
@@ -1782,6 +1799,7 @@ def recommend(
     analysis: dict[str, Any],
     model_version: str,
     recent_window: int,
+    fusion_weights: dict[str, float] | None = None,
 ) -> list[dict[str, Any]]:
     ordered = list(reversed(draws))
     recent = ordered[-recent_window:]
@@ -1791,8 +1809,13 @@ def recommend(
     blue_miss = omission(draws, range(1, 17), lambda draw, number: number == draw.blueBall)
     red_recent = weighted_frequency(recent, range(1, 34), lambda draw, number: number in draw.redBalls)
     blue_recent = weighted_frequency(recent, range(1, 17), lambda draw, number: number == draw.blueBall)
-    red_details = score_breakdown(red_freq, red_recent, red_miss, range(1, 34), model_version)
-    blue_details = score_breakdown(blue_freq, blue_recent, blue_miss, range(1, 17), model_version)
+    if model_version == ENSEMBLE_MODEL_VERSION:
+        weights = fusion_weights or uniform_fusion_weights()
+        red_details = fuse_score_breakdowns(red_freq, red_recent, red_miss, range(1, 34), weights)
+        blue_details = fuse_score_breakdowns(blue_freq, blue_recent, blue_miss, range(1, 17), weights)
+    else:
+        red_details = score_breakdown(red_freq, red_recent, red_miss, range(1, 34), model_version)
+        blue_details = score_breakdown(blue_freq, blue_recent, blue_miss, range(1, 17), model_version)
     red_scores = {number: detail["total"] for number, detail in red_details.items()}
     blue_scores = {number: detail["total"] for number, detail in blue_details.items()}
     rng = random.Random(stable_seed(f"{analysis['targetIssue']}|{len(draws)}|{red_count}|{blue_count}|{single_count}|{compound_count}"))
@@ -2044,8 +2067,9 @@ def stable_seed(text: str) -> int:
 def analysis_summary(analysis: dict[str, Any], model_version: str = "recent_focus_v3") -> str:
     if model_version == UNIFORM_RANDOM_MODEL_VERSION:
         return f"样本{analysis['sampleSize']}期；当前采用无偏随机覆盖，不以冷热、遗漏或中段作为预测依据。"
+    prefix = "多模型融合；" if model_version == ENSEMBLE_MODEL_VERSION else ""
     return (
-        f"样本{analysis['sampleSize']}期；最近窗口{analysis['recentWindow']}期；"
+        f"{prefix}样本{analysis['sampleSize']}期；最近窗口{analysis['recentWindow']}期；"
         f"红球热号{' '.join(map(str, analysis['hotReds'][:6]))}；"
         f"红球遗漏{' '.join(map(str, analysis['overdueReds'][:6]))}；"
         f"蓝球热号{' '.join(map(str, analysis['hotBlues'][:3]))}"
@@ -2423,9 +2447,138 @@ def ensure_ssq_model_evaluation(
     return save_ssq_model_evaluation(report)
 
 
+def ssq_evaluation_cache_matches(cached: dict[str, Any] | None, draws: list[SsqDraw], recent_window: int, single_count: int, compound_count: int, red_count: int, blue_count: int) -> bool:
+    if not cached:
+        return False
+    expected = {
+        "evaluationVersion": SSQ_EVALUATION_VERSION,
+        "latestIssue": draws[0].issue if draws else "",
+        "recentWindow": recent_window,
+        "sampleLimit": SSQ_EVALUATION_SAMPLE_LIMIT,
+        "foldCount": SSQ_EVALUATION_FOLD_COUNT,
+        "singleCount": single_count,
+        "compoundCount": compound_count,
+        "redCount": red_count,
+        "blueCount": blue_count,
+    }
+    return all(cached.get(key) == value for key, value in expected.items())
+
+
+def run_ssq_model_evaluation_async(draws: list[SsqDraw], recent_window: int = 500, single_count: int = 0, compound_count: int = 1, red_count: int = 6, blue_count: int = 3) -> None:
+    """后台异步执行模型评估，结果写入缓存文件，供后续推荐请求直接使用。"""
+    global _ssq_evaluation_running, _ssq_evaluation_result
+    with _ssq_evaluation_lock:
+        if _ssq_evaluation_running:
+            return
+        cached = load_ssq_model_evaluation()
+        if ssq_evaluation_cache_matches(cached, draws, recent_window, single_count, compound_count, red_count, blue_count):
+            _ssq_evaluation_result = cached
+            _ssq_evaluation_done.set()
+            return
+        _ssq_evaluation_running = True
+        _ssq_evaluation_done.clear()
+    try:
+        _ssq_evaluation_result = ensure_ssq_model_evaluation(
+            draws,
+            recent_window=recent_window,
+            single_count=single_count,
+            compound_count=compound_count,
+            red_count=red_count,
+            blue_count=blue_count,
+        )
+    finally:
+        with _ssq_evaluation_lock:
+            _ssq_evaluation_running = False
+        _ssq_evaluation_done.set()
+
+
+def get_or_wait_ssq_model_evaluation(draws: list[SsqDraw], recent_window: int, single_count: int, compound_count: int, red_count: int, blue_count: int, timeout: float = 90.0) -> dict[str, Any]:
+    """推荐路由专用：缓存命中立即返回；后台评估进行中则等待完成；否则前台同步评估（兜底）。"""
+    global _ssq_evaluation_running
+    cached = load_ssq_model_evaluation()
+    if ssq_evaluation_cache_matches(cached, draws, recent_window, single_count, compound_count, red_count, blue_count):
+        return cached
+    with _ssq_evaluation_lock:
+        running = _ssq_evaluation_running
+    if running:
+        _ssq_evaluation_done.wait(timeout=timeout)
+        result = _ssq_evaluation_result
+        if result and ssq_evaluation_cache_matches(result, draws, recent_window, single_count, compound_count, red_count, blue_count):
+            return result
+    return ensure_ssq_model_evaluation(
+        draws,
+        recent_window=recent_window,
+        single_count=single_count,
+        compound_count=compound_count,
+        red_count=red_count,
+        blue_count=blue_count,
+    )
+
+
+def compute_fusion_weights(model_reports: list[dict[str, Any]]) -> dict[str, float]:
+    """按各模型 selectionScore 比例归一化，得到融合权重（和为 1）。"""
+    scores = {
+        str(report["version"]): max(0.0, float(report.get("selectionScore", 0.0)))
+        for report in model_reports
+        if str(report.get("version")) in MODEL_CONFIGS
+    }
+    if not scores:
+        return uniform_fusion_weights()
+    total = sum(scores.values())
+    if total <= 0:
+        return uniform_fusion_weights()
+    return {version: score / total for version, score in scores.items()}
+
+
+def uniform_fusion_weights() -> dict[str, float]:
+    weight = 1.0 / len(MODEL_CONFIGS)
+    return {version: weight for version in MODEL_CONFIGS}
+
+
+def fuse_score_breakdowns(full_frequency: Counter[int], recent_frequency: dict[int, float], misses: dict[int, int], numbers: range, fusion_weights: dict[str, float]) -> dict[int, dict[str, Any]]:
+    """按融合权重对 4 个模型的单球评分做加权平均，得到统一分数。"""
+    per_model = {
+        version: score_breakdown(full_frequency, recent_frequency, misses, numbers, version)
+        for version in MODEL_CONFIGS
+    }
+    score_keys = ("total", "fullFrequencyScore", "recentScore", "omissionScore", "centerBiasScore")
+    fused: dict[int, dict[str, Any]] = {}
+    for number in numbers:
+        detail = per_model["recent_focus_v3"][number]
+        merged = {
+            key: round(
+                sum(fusion_weights[version] * per_model[version][number][key] for version in MODEL_CONFIGS),
+                6,
+            )
+            for key in score_keys
+        }
+        merged["fullCount"] = detail["fullCount"]
+        merged["recentWeighted"] = detail["recentWeighted"]
+        merged["missCount"] = detail["missCount"]
+        fused[number] = merged
+    return fused
+
+
+def compute_fused_selection_score(model_reports: list[dict[str, Any]], fusion_weights: dict[str, float]) -> float:
+    """多模型综合分 = 各模型 selectionScore 按融合权重加权平均。"""
+    score_map = {
+        str(report["version"]): float(report.get("selectionScore", 0.0))
+        for report in model_reports
+        if str(report.get("version")) in MODEL_CONFIGS
+    }
+    if not score_map:
+        return 0.0
+    return sum(fusion_weights.get(version, 0.0) * score for version, score in score_map.items())
+
+
 def build_narrative(analysis: dict[str, Any], model_version: str) -> list[str]:
+    first = (
+        f"当前使用多模型融合（{model_version}），已按 4 个模型的历史回测得分加权统一出号，最近窗口 {analysis['recentWindow']} 期。"
+        if model_version == ENSEMBLE_MODEL_VERSION
+        else f"当前使用 {model_version}，最近窗口 {analysis['recentWindow']} 期，目标是兼顾长期稳定性与近期变化。"
+    )
     return [
-        f"当前使用 {model_version}，最近窗口 {analysis['recentWindow']} 期，目标是兼顾长期稳定性与近期变化。",
+        first,
         f"红球热号集中在 {format_numbers(analysis['hotReds'][:6])}，遗漏较久的是 {format_numbers(analysis['overdueReds'][:6])}。",
         f"历史常见奇数个数为 {'/'.join(map(str, analysis['commonOddCounts']))}，和值主要落在 {analysis['sumRange'][0]}-{analysis['sumRange'][1]}。",
     ]
