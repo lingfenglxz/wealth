@@ -18,7 +18,9 @@ import java.net.URL
 class WealthRepository(context: Context) {
     private val dao = AppDatabase.get(context).wealthDao()
 
-    val lotteryDraws: Flow<List<LotteryDraw>> = dao.observeLotteryDraws()
+    // 只向 UI 暴露近期开奖，全量数据仍可通过 getLotteryDraws() 获取（结算/导出用）
+    val lotteryDraws: Flow<List<LotteryDraw>> = dao.observeRecentLotteryDraws(RECENT_LOTTERY_DRAW_LIMIT)
+    val lotteryDrawTotalCount: Flow<Int> = dao.observeLotteryDrawCount()
     val lotteryPredictions: Flow<List<LotteryPrediction>> = dao.observePredictions()
     val lotteryPredictionHistory: Flow<List<LotteryPrediction>> = dao.observeAllPredictions()
     val lotterySettlements: Flow<List<LotterySettlement>> = dao.observeLotterySettlements()
@@ -28,7 +30,7 @@ class WealthRepository(context: Context) {
     val footballRecommendations: Flow<List<FootballRecommendationEntity>> = dao.observeFootballRecommendations()
     val footballRecommendationHistory: Flow<List<FootballRecommendationEntity>> = dao.observeFootballRecommendationHistory()
 
-    suspend fun refreshLotterySettlements() {
+    suspend fun refreshLotterySettlements() = withContext(Dispatchers.Default) {
         settleResolvedPredictions()
     }
 
@@ -559,6 +561,9 @@ class WealthRepository(context: Context) {
     companion object {
         private const val MIN_LOTTERY_SAMPLE_SIZE = 30
         private const val LOTTERY_BET_PRICE = 2.0
+
+        // UI 展示窗口：走势/热力图只用近 30 期，120 期留足余量且统计开销可忽略
+        private const val RECENT_LOTTERY_DRAW_LIMIT = 120
 
         private const val DESKTOP_USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"

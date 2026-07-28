@@ -26,6 +26,7 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
     private val resolver = application.contentResolver
 
     val lotteryDraws: StateFlow<List<LotteryDraw>> = repository.lotteryDraws.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val lotteryDrawTotalCount: StateFlow<Int> = repository.lotteryDrawTotalCount.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
     val predictions: StateFlow<List<LotteryPrediction>> = repository.lotteryPredictions.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val predictionHistory: StateFlow<List<LotteryPrediction>> = repository.lotteryPredictionHistory.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val lotterySettlements: StateFlow<List<LotterySettlement>> = repository.lotterySettlements.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -52,6 +53,8 @@ class WealthViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         viewModelScope.launch {
+            // 延迟到首帧渲染完成后再结算，避免与页面打开时的滑动手势抢 UI 线程
+            kotlinx.coroutines.delay(500)
             repository.refreshLotterySettlements()
         }
     }

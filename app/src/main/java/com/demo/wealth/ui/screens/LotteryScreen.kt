@@ -103,7 +103,8 @@ fun LotteryScreen(
     onGenerate: (Int, Int) -> Unit,
     isGenerating: Boolean = false,
     errorMessage: String? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    totalDrawCount: Int = draws.size
 ) {
     val visibleDraws = remember(draws) { draws.take(10) }
     val drawDatesByIssue = remember(draws) { draws.associate { it.issue to it.date } }
@@ -118,7 +119,7 @@ fun LotteryScreen(
             val targetIssue = draws.firstOrNull()?.issue?.let { nextIssueLabel(it) } ?: "请先更新数据"
             ActionHeader(
                 "双色球",
-                "历史期数 ${draws.size} · 推荐目标 $targetIssue",
+                "历史期数 $totalDrawCount · 推荐目标 $targetIssue",
                 isGenerating
             ) {
                 onGenerate(compoundRedCount, compoundBlueCount)
@@ -143,7 +144,7 @@ fun LotteryScreen(
         stickyHeader { StickyGroupLabel("数据分析") }
 
         item {
-            LotteryAnalysisCard(draws, predictions.firstOrNull(), compoundRedCount, compoundBlueCount, report)
+            LotteryAnalysisCard(draws, predictions.firstOrNull(), compoundRedCount, compoundBlueCount, report, totalDrawCount)
         }
 
         if (draws.isNotEmpty()) {
@@ -363,7 +364,8 @@ private fun CompoundPlanCard(redCount: Int, blueCount: Int, onChange: (Int, Int)
 @Composable
 private fun LotteryAnalysisCard(
     draws: List<LotteryDraw>, prediction: LotteryPrediction?,
-    compoundRedCount: Int, compoundBlueCount: Int, report: LotteryResearchReport?
+    compoundRedCount: Int, compoundBlueCount: Int, report: LotteryResearchReport?,
+    totalDrawCount: Int = draws.size
 ) {
     val latest = remember(draws) {
         draws.maxWithOrNull(compareBy<LotteryDraw> { it.issue.toLongOrNull() ?: 0L }.thenBy { it.date })
@@ -381,9 +383,9 @@ private fun LotteryAnalysisCard(
     Panel {
         Text("数据分析", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(SpacingSm))
-        if (draws.size < 30) {
+        if (totalDrawCount < 30) {
             Text("历史样本不足，至少需要 30 期后才会按模型生成推荐。", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-            Text("当前 ${draws.size} 期，请先在“数据”页使用服务端更新。", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+            Text("当前 $totalDrawCount 期，请先在“数据”页使用服务端更新。", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
             return@Panel
         }
         val latestDraw = latest ?: return@Panel
@@ -394,7 +396,7 @@ private fun LotteryAnalysisCard(
             style = MaterialTheme.typography.bodyMedium
         )
         Spacer(Modifier.height(SpacingSm))
-        MetricRow("样本期数", draws.size.toString(), "组合注数", (LotteryRules.combinationCount(compoundRedCount, 6) * compoundBlueCount).toString())
+        MetricRow("样本期数", totalDrawCount.toString(), "组合注数", (LotteryRules.combinationCount(compoundRedCount, 6) * compoundBlueCount).toString())
         Spacer(Modifier.height(SpacingSm))
         Text("红球热号", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = TextSecondary)
         Spacer(Modifier.height(SpacingSm))

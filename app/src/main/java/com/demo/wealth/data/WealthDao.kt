@@ -11,6 +11,13 @@ interface WealthDao {
     @Query("SELECT * FROM LotteryDraw ORDER BY date DESC, issue DESC")
     fun observeLotteryDraws(): Flow<List<LotteryDraw>>
 
+    // UI 展示只消费近期数据，限制进入 UI 线程的行数，避免全表 3000+ 行反复触发重组
+    @Query("SELECT * FROM LotteryDraw ORDER BY date DESC, issue DESC LIMIT :limit")
+    fun observeRecentLotteryDraws(limit: Int): Flow<List<LotteryDraw>>
+
+    @Query("SELECT COUNT(*) FROM LotteryDraw")
+    fun observeLotteryDrawCount(): Flow<Int>
+
     @Query("SELECT * FROM LotteryDraw ORDER BY date DESC, issue DESC")
     suspend fun getLotteryDraws(): List<LotteryDraw>
 

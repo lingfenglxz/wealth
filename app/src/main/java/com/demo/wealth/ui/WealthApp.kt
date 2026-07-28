@@ -128,6 +128,7 @@ private fun HomeRoute(viewModel: WealthViewModel) {
 @Composable
 private fun LotteryRoute(viewModel: WealthViewModel) {
     val draws by viewModel.lotteryDraws.collectAsStateWithLifecycle()
+    val totalDrawCount by viewModel.lotteryDrawTotalCount.collectAsStateWithLifecycle()
     val predictions by viewModel.predictions.collectAsStateWithLifecycle()
     val settlements by viewModel.lotterySettlements.collectAsStateWithLifecycle()
     val report by viewModel.researchReport.collectAsStateWithLifecycle()
@@ -137,7 +138,8 @@ private fun LotteryRoute(viewModel: WealthViewModel) {
     val error by viewModel.lotteryGenerationError.collectAsStateWithLifecycle()
     LotteryScreen(
         draws, predictions, settlements, report, redCount, blueCount,
-        viewModel::setCompoundPlan, viewModel::generateLottery, generating, error
+        viewModel::setCompoundPlan, viewModel::generateLottery, generating, error,
+        totalDrawCount = totalDrawCount
     )
 }
 
@@ -149,7 +151,7 @@ private fun SportsRoute(viewModel: WealthViewModel) {
 @Composable
 private fun DataRoute(viewModel: WealthViewModel) {
     val serverUrl by viewModel.lotteryServerUrl.collectAsStateWithLifecycle()
-    val draws by viewModel.lotteryDraws.collectAsStateWithLifecycle()
+    val drawCount by viewModel.lotteryDrawTotalCount.collectAsStateWithLifecycle()
     val matches by viewModel.footballMatches.collectAsStateWithLifecycle()
     val lotteryUpdating by viewModel.isLotteryUpdating.collectAsStateWithLifecycle()
     val footballUpdating by viewModel.isFootballUpdating.collectAsStateWithLifecycle()
@@ -159,6 +161,6 @@ private fun DataRoute(viewModel: WealthViewModel) {
     DataScreen(
         serverUrl, viewModel::setLotteryServerUrl, viewModel::updateLotteryFromServer,
         viewModel::updateFootballFromServer, viewModel::exportBackup, viewModel::restoreBackup,
-        draws.size, matches.size, lotteryUpdating, footballUpdating, connected, lotteryError, footballError
+        drawCount, matches.size, lotteryUpdating, footballUpdating, connected, lotteryError, footballError
     )
 }
