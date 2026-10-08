@@ -2,9 +2,12 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 test('recommendation, persistence, backup and mobile layout use only same-origin requests', async ({ page }) => {
-  const errors = [], remote = [];
+  const errors = [], remote = [], runtimeRequests = [];
   page.on('pageerror', e => errors.push(e.message));
-  page.on('request', r => { if (!r.url().startsWith(new URL(process.env.SITE_URL || 'http://127.0.0.1:4173').origin)) remote.push(r.url()); });
+  page.on('request', r => {
+    if (r.url().includes('/runtime/')) runtimeRequests.push(r.url());
+    if (!r.url().startsWith(new URL(process.env.SITE_URL || 'http://127.0.0.1:4173').origin)) remote.push(r.url());
+  });
   await page.goto('./');
   const dataset = await (await page.request.get('./data/ssq.json')).json();
   const latest = dataset.latestIssue;
@@ -38,7 +41,7 @@ test('recommendation, persistence, backup and mobile layout use only same-origin
   await page.getByRole('button', { name: '推荐', exact: true }).click();
   await page.screenshot({ path: 'test-results/mobile.png', fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  expect(errors).toEqual([]); expect(remote).toEqual([]);
+  expect(errors).toEqual([]); expect(remote).toEqual([]); expect(runtimeRequests).toEqual([]);
 });
 test('legacy backup settles each run and blocks HTML injection', async ({ page }) => {
   await page.goto('./');
@@ -52,6 +55,7 @@ test('legacy backup settles each run and blocks HTML injection', async ({ page }
   await page.locator('.history > summary').click();
   await expect(page.locator('.settlement')).toContainText('一等奖 1 注');
   await expect(page.locator('.settlement')).toContainText('投入 ¥2');
+  await page.screenshot({ path: 'test-results/settlement-page.png', fullPage: false });
   await expect(page.locator('.ticket img')).toHaveCount(0);
 });
 test('custom parameters are computed and identical regeneration is idempotent', async ({ page }) => {
@@ -60,7 +64,7 @@ test('custom parameters are computed and identical regeneration is idempotent', 
   await page.locator('[name=recentWindow]').fill('30');
   await page.locator('[name=recentWindow]').blur();
   await page.getByRole('button', { name: '生成推荐并保存' }).click();
-  await expect(page.locator('.ticket')).toHaveCount(1, { timeout: 240000 });
+  await expect(page.locator('.ticket')).toHaveCount(1, { timeout: process.env.SITE_URL ? 540000 : 240000 });
   await page.getByRole('button', { name: '生成推荐并保存' }).click();
   await expect(page.getByRole('status')).toContainText('方案已保存');
   await page.getByRole('button', { name: '记录与开奖', exact: true }).click();

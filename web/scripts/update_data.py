@@ -142,14 +142,19 @@ def update(seed=None):
             raise ValueError('Conflicting published draw: ' + row['issue'])
         merged[row['issue']] = row
     draws = sorted(merged.values(), key=lambda d: d['issue'], reverse=True)
-    changed = current is None or draws != current['draws']
+    changed = current is None or draws != current['draws'] or not current.get('defaultRecommendation')
     now = datetime.now(timezone.utc).isoformat()
     if changed:
         core = load_core()
         print(f'Validated {len(draws)} draws, latest {draws[0]["issue"]}; evaluating default plan', flush=True)
         evaluation = core.build_ssq_model_evaluation([core.SsqDraw(**d) for d in draws])
+        sys.path.insert(0, str(PUBLIC))
+        from browser_api import browser_request
+        plan = dict(singleCount=0, compoundCount=1, redCount=6, blueCount=3, recentWindow=500, modelVersion='auto')
+        recommendation = json.loads(browser_request(json.dumps(dict(action='recommend', draws=draws, plan=plan, evaluation=evaluation))))
+        recommendation.pop('evaluation')
         payload = dict(schemaVersion=1, source=source, publishedAt=now, latestIssue=draws[0]['issue'],
-                       draws=draws, defaultEvaluation=evaluation)
+                       draws=draws, defaultEvaluation=evaluation, defaultRecommendation=recommendation)
         DATA.parent.mkdir(parents=True, exist_ok=True)
         temporary = DATA.with_suffix('.tmp')
         temporary.write_text(json.dumps(payload, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
