@@ -19,6 +19,7 @@ test('recommendation, persistence, backup and mobile layout use only same-origin
   await page.reload();
   await expect(page.getByText(`第 ${target} 期推荐`, { exact: true })).toBeVisible();
   await page.getByRole('button', { name: '数据备份', exact: true }).click();
+  await page.screenshot({ path: 'test-results/backup-page.png', fullPage: true });
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: '下载 JSON 备份' }).click();
   const backup = await download;
