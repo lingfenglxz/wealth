@@ -1,6 +1,12 @@
 # WealthLab
 
-一个安卓自用彩票实验项目：福彩双色球 + 体彩足球彩票。
+双色球静态网站现已加入本项目，使用 GitHub Pages + Actions 自动更新开奖，无需后端服务器。
+
+- [打开双色球网站](https://lingfenglxz.github.io/wealth/)
+- [网站实施方案与开发部署说明](web/README.md)
+- [自动更新与发布工作流](.github/workflows/pages.yml)
+
+原 Android 应用与轻服务端代码保留，下面说明适用于原应用。
 
 ## 功能
 
