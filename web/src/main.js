@@ -2,7 +2,7 @@ import './style.css';
 import { defaultPlan, emptyState, loadState, saveState, mergeBackup, validatePlan } from './storage.js';
 import { combination, settleRun } from './settlement.js';
 import { mergeRuns } from './records.js';
-import { synchronize, authorized, setAuthorization, archiveUrl } from './cloud.js';
+import { synchronize, authorized, authorizationRemembered, authorizationStorageKey, reloadAuthorization, setAuthorization, archiveUrl } from './cloud.js';
 
 const app = document.querySelector('#app');
 const names = { auto: '多模型融合', recent_focus_v3: '近期优先', hit_rate_v4: '命中率模型', balanced_v2: '均衡模型', baseline_v1: '长期基线', uniform_random_v0: '随机对照' };
@@ -29,8 +29,11 @@ function withSettlements(current) {
 function updateCloudStatus() {
   app.querySelectorAll('[data-cloud-status]').forEach(element => { element.textContent = cloudMessage; });
   const indicator = app.querySelector('#authorization-status');
-  if (indicator) indicator.textContent = authorized() ? '本标签页已配置上传授权' : '未配置上传授权（仍可自动下载）';
+  if (indicator) indicator.textContent = authorizationLabel();
   app.querySelectorAll('[data-sync]').forEach(button => { button.disabled = Boolean(syncing); });
+}
+function authorizationLabel() {
+  return authorized() ? (authorizationRemembered() ? '本设备已记住上传授权' : '浏览器无法记住授权，仅本次打开有效') : '未配置上传授权（仍可自动下载）';
 }
 async function syncRecords(force = false) {
   if (syncing) { if (force) syncAgain = true; return syncing; }
@@ -112,7 +115,7 @@ function historyHtml() {
   return `<section class="panel"><div class="row"><h2>推荐记录</h2><span class="muted">${state.runs.length} 条记录 · 本地与 GitHub 合并</span></div>${state.runs.length ? state.runs.map(r => `<details class="history"><summary><span><strong>第 ${escape(r.targetIssue)} 期</strong><span class="muted">${date(r.createdAt)}</span></span><span class="tag">${r.settlement ? '已结算' : '待开奖'}</span></summary>${r.predictions.map(card).join('')}${r.settlement ? `<div class="settlement">${r.settlement.betCount} 注 · 投入 ¥${r.settlement.investedAmount} · 固定奖金 ¥${r.settlement.simulatedPrizeAmount} · 最佳红球 ${r.settlement.bestRedHits} 个 · 蓝球${r.settlement.blueHit ? '命中' : '未命中'}<p class="small">一等奖 ${r.settlement.tierCounts.first} 注，二等奖 ${r.settlement.tierCounts.second} 注；这两项浮动奖金未计入收益。</p></div>` : ''}</details>`).join('') : '<p class="empty muted">生成的方案会保存在这里，开奖后自动结算。</p>'}</section><section class="panel"><div class="row"><h2>近期开奖</h2><span class="muted">展示最近 50 期 / 完整数据 ${data?.draws.length || 0} 期</span></div>${(data?.draws || []).slice(0, 50).map(d => `<div class="draw-row"><span><strong>${d.issue}</strong><small>${d.date}</small></span><div class="number-row">${balls(d.redBalls)}${balls([d.blueBall], true)}</div></div>`).join('')}</section>`;
 }
 function backupHtml() {
-  return `<section class="panel cloud-panel"><div class="row"><h2>GitHub 公开记录同步</h2><span class="tag">跨设备共享</span></div><p>推荐、研究报告和结算自动下载到当前浏览器；上传成功后，换手机或电脑打开网站即可读取。所有上传记录公开可见。</p><p class="cloud-status" data-cloud-status>${escape(cloudMessage)}</p><p class="small muted" id="authorization-status">${authorized() ? '本标签页已配置上传授权' : '未配置上传授权（仍可自动下载）'}</p><form id="cloud-auth"><label>GitHub 上传授权<input id="github-token" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴仅授权 wealth 仓库的令牌" required></label><div class="cloud-actions"><button class="primary" type="submit">保存本会话授权并同步</button><button type="button" data-sync ${syncing ? 'disabled' : ''}>立即同步</button><button type="button" id="clear-auth">清除本会话授权</button></div></form><details class="cloud-help"><summary>如何配置上传授权</summary><p>使用仓库所有者或有写入权限的 GitHub 账号，在 <a href="https://github.com/settings/personal-access-tokens/new?name=Wealth+SSQ+sync&amp;target_name=lingfenglxz&amp;contents=write" target="_blank" rel="noopener noreferrer">GitHub 创建 Fine-grained personal access token</a>。Repository access 选择 Only select repositories → wealth；Repository permissions 中 Contents 选择 Read and write，并设置到期时间。复制令牌到上面的输入框。</p><p>授权只保留在当前标签页会话，关闭后需重新配置；每个需要上传的设备分别配置。令牌不会写入网站源码、公开记录或 JSON 备份。没有授权也能读取公开记录、生成并保存本地推荐；以后配置授权会补传。</p></details><p class="small muted"><a href="${archiveUrl}" target="_blank" rel="noopener noreferrer">查看仓库记录文件</a> · 新推荐与导入记录在授权有效时自动上传；离线记录在网络恢复后尝试补传。开奖后 Actions 每小时自动结算云端记录。</p></section><section class="panel"><h2>本地备份</h2><p>浏览器保留完整本地副本。上传前清理浏览器会丢失待上传记录，请先同步或导出。</p><div class="backup-grid"><article><h3>导出完整备份</h3><p class="muted">包含 ${state.runs.length} 次推荐、报告和结算；不包含 GitHub 授权。</p><button id="export">下载 JSON 备份</button></article><article><h3>导入并合并</h3><p class="muted">支持本网页、Android 应用及原服务器的双色球备份。相同记录自动合并，号码不同的方案保留各自记录。</p><label class="file-button">选择备份文件<input id="import" type="file" accept=".json,application/json" ${busy ? 'disabled' : ''}></label></article></div></section><section class="panel"><h2>自动更新状态</h2><p>开奖数据优先来自中国福彩网，官网不可用时由 500 彩票网公开数据校验补充。GitHub Actions 每小时检查一次，发现新开奖后更新静态网站；调度可能延迟。</p><dl><dt>当前期号</dt><dd>${escape(data?.latestIssue || '未加载')}</dd><dt>数据发布时间</dt><dd>${data ? new Date(data.publishedAt).toLocaleString('zh-CN') : '—'}</dd><dt>完整历史</dt><dd>${data?.draws.length || 0} 期</dd></dl><button id="refresh" ${busy ? 'disabled' : ''}>检查网站最新数据</button><p class="small muted">网页与 GitHub 直接同步，无需原后端服务器。</p></section>`;
+  return `<section class="panel cloud-panel"><div class="row"><h2>GitHub 公开记录同步</h2><span class="tag">跨设备共享</span></div><p>推荐、研究报告和结算自动下载到当前浏览器；上传成功后，换手机或电脑打开网站即可读取。所有上传记录公开可见。</p><p class="cloud-status" data-cloud-status>${escape(cloudMessage)}</p><p class="small muted" id="authorization-status">${escape(authorizationLabel())}</p><form id="cloud-auth"><label>GitHub 上传授权<input id="github-token" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴仅授权 wealth 仓库的令牌" required></label><div class="cloud-actions"><button class="primary" type="submit">记住此设备并同步</button><button type="button" data-sync ${syncing ? 'disabled' : ''}>立即同步</button><button type="button" id="clear-auth">清除此设备授权</button></div></form><details class="cloud-help"><summary>如何配置上传授权</summary><p>使用仓库所有者或有写入权限的 GitHub 账号，在 <a href="https://github.com/settings/personal-access-tokens/new?name=Wealth+SSQ+sync&amp;target_name=lingfenglxz&amp;contents=write" target="_blank" rel="noopener noreferrer">GitHub 创建 Fine-grained personal access token</a>。Repository access 选择 Only select repositories → wealth；Repository permissions 中 Contents 选择 Read and write，并设置到期时间。复制令牌到上面的输入框。</p><p>授权保存在此设备的当前浏览器，关闭标签页或重启浏览器后仍可自动上传。每个设备或不同浏览器分别配置；令牌到期或清除浏览器数据后需重新填写。共用这份浏览器配置文件的人也能使用授权；无痕窗口可能无法长期保存。令牌不会写入网站源码、公开记录或 JSON 备份。没有授权也能读取公开记录、生成并保存本地推荐；以后配置授权会补传。</p></details><p class="small muted"><a href="${archiveUrl}" target="_blank" rel="noopener noreferrer">查看仓库记录文件</a> · 新推荐与导入记录在授权有效时自动上传；离线记录在网络恢复后尝试补传。开奖后 Actions 每小时自动结算云端记录。</p></section><section class="panel"><h2>本地备份</h2><p>浏览器保留完整本地副本。上传前清理浏览器会丢失待上传记录，请先同步或导出。</p><div class="backup-grid"><article><h3>导出完整备份</h3><p class="muted">包含 ${state.runs.length} 次推荐、报告和结算；不包含 GitHub 授权。</p><button id="export">下载 JSON 备份</button></article><article><h3>导入并合并</h3><p class="muted">支持本网页、Android 应用及原服务器的双色球备份。相同记录自动合并，号码不同的方案保留各自记录。</p><label class="file-button">选择备份文件<input id="import" type="file" accept=".json,application/json" ${busy ? 'disabled' : ''}></label></article></div></section><section class="panel"><h2>自动更新状态</h2><p>开奖数据优先来自中国福彩网，官网不可用时由 500 彩票网公开数据校验补充。GitHub Actions 每小时检查一次，发现新开奖后更新静态网站；调度可能延迟。</p><dl><dt>当前期号</dt><dd>${escape(data?.latestIssue || '未加载')}</dd><dt>数据发布时间</dt><dd>${data ? new Date(data.publishedAt).toLocaleString('zh-CN') : '—'}</dd><dt>完整历史</dt><dd>${data?.draws.length || 0} 期</dd></dl><button id="refresh" ${busy ? 'disabled' : ''}>检查网站最新数据</button><p class="small muted">网页与 GitHub 直接同步，无需原后端服务器。</p></section>`;
 }
 function render() {
   const latest = data?.draws[0];
@@ -169,7 +172,7 @@ function render() {
   });
   app.querySelectorAll('[data-sync]').forEach(button => button.onclick = () => { void syncRecords(true); });
   app.querySelector('#clear-auth')?.addEventListener('click', () => {
-    setAuthorization(''); cloudMessage = '已清除上传授权；公开记录仍会自动下载'; updateCloudStatus();
+    setAuthorization(''); cloudMessage = '已清除本设备上传授权；公开记录仍会自动下载'; updateCloudStatus();
   });
 }
 async function perform(action) {
@@ -182,6 +185,13 @@ render();
 await perform(async () => { state = await loadState(); await refresh(); await settle(); });
 void syncRecords(true);
 window.addEventListener('online', () => { void syncRecords(true); });
+window.addEventListener('storage', event => {
+  if (event.key !== authorizationStorageKey && event.key !== null) return;
+  reloadAuthorization();
+  cloudMessage = authorized() ? '已更新本设备上传授权，正在同步…' : '已清除本设备上传授权；公开记录仍会自动下载';
+  updateCloudStatus();
+  if (authorized()) void syncRecords(true);
+});
 window.addEventListener('focus', () => { void syncRecords(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void syncRecords(); });
 setInterval(() => { if (!document.hidden && navigator.onLine) void syncRecords(); }, 300000);

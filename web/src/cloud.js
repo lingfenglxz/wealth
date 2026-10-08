@@ -3,15 +3,30 @@ import { archiveOf, readArchive, stableJson } from './records.js';
 export const cloudConfig = { repository: 'lingfenglxz/wealth', branch: 'codex/ssq-records', path: 'records/ssq-records.json.gz' };
 export const archiveUrl = `https://github.com/${cloudConfig.repository}/blob/${cloudConfig.branch}/${cloudConfig.path}`;
 const endpoint = `https://api.github.com/repos/${cloudConfig.repository}/contents/${cloudConfig.path}`;
-const sessionKey = 'wealth-ssq-github-session';
-let token = '';
-try { token = sessionStorage.getItem(sessionKey) || ''; } catch { /* Private browsing may disable session storage. */ }
+export const authorizationStorageKey = 'wealth-ssq-github-device';
+const legacySessionKey = 'wealth-ssq-github-session';
+let token = '', remembered = false;
+export function reloadAuthorization() {
+  try { token = localStorage.getItem(authorizationStorageKey) || ''; remembered = Boolean(token); } catch { /* Keep memory-only authorization if browser storage is unavailable. */ }
+}
+reloadAuthorization();
+try {
+  const previous = sessionStorage.getItem(legacySessionKey);
+  if (!token && previous) setAuthorization(previous);
+  sessionStorage.removeItem(legacySessionKey);
+} catch { /* Legacy session storage may be unavailable. */ }
 export const authorized = () => Boolean(token);
+export const authorizationRemembered = () => remembered;
 export function setAuthorization(value) {
-  token = value.trim();
-  try { if (token) sessionStorage.setItem(sessionKey, token); else sessionStorage.removeItem(sessionKey); } catch { /* Memory-only authorization still works. */ }
+  token = value.trim(); remembered = false;
+  try {
+    if (token) localStorage.setItem(authorizationStorageKey, token); else localStorage.removeItem(authorizationStorageKey);
+    remembered = Boolean(token);
+  } catch { /* The UI explicitly reports memory-only authorization. */ }
+  try { sessionStorage.removeItem(legacySessionKey); } catch { /* No legacy credentials remain when storage is available. */ }
 }
 function headers(raw = false) {
+  if (remembered) reloadAuthorization();
   return { Accept: raw ? 'application/vnd.github.raw+json' : 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(token ? { Authorization: 'Bearer ' + token } : {}) };
 }
 async function request(method, raw = false, body) {

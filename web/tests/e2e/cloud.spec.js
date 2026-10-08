@@ -1,6 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, chromium } from '@playwright/test';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { readFileSync } from 'node:fs';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { resolve, dirname } from 'node:path';
 
 const pattern = 'https://api.github.com/repos/lingfenglxz/wealth/contents/**';
 const fixtureToken = 'test-only-not-a-real-github-token';
@@ -34,7 +36,7 @@ test('authenticated upload merges a concurrent device, fresh devices read withou
   await expect(page.locator('[data-cloud-status]')).toContainText('待上传');
   await page.getByRole('button', { name: '数据备份', exact: true }).click();
   await page.locator('#github-token').fill(fixtureToken);
-  await page.getByRole('button', { name: '保存本会话授权并同步', exact: true }).click();
+  await page.getByRole('button', { name: '记住此设备并同步', exact: true }).click();
   await expect(page.locator('.cloud-panel [data-cloud-status]')).toContainText('已同步 2');
   expect(puts).toBe(2);
   expect(archive.runs).toHaveLength(2);
@@ -51,9 +53,9 @@ test('authenticated upload merges a concurrent device, fresh devices read withou
   expect(readFileSync('test-results/cloud-backup.json', 'utf8')).not.toContain(fixtureToken);
   await page.reload();
   await page.getByRole('button', { name: '数据备份', exact: true }).click();
-  await expect(page.locator('#authorization-status')).toContainText('已配置');
+  await expect(page.locator('#authorization-status')).toContainText('已记住');
   await page.locator('#clear-auth').click();
-  expect(await page.evaluate(() => sessionStorage.getItem('wealth-ssq-github-session'))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('wealth-ssq-github-device'))).toBeNull();
   const context = await browser.newContext();
   await context.route(pattern, async route => {
     expect(route.request().headers().authorization).toBeUndefined();
@@ -85,7 +87,7 @@ test('network failure retains local records, online recovery uploads, invalid au
   await page.getByRole('button', { name: '数据备份', exact: true }).click();
   await page.locator('#github-token').fill(fixtureToken);
   await page.locator('#cloud-auth button[type=submit]').click();
-  await expect(page.locator('#authorization-status')).toContainText('已配置');
+  await expect(page.locator('#authorization-status')).toContainText('已记住');
   await expect(page.locator('[data-sync]')).toBeEnabled();
   disconnected = true;
   await page.locator('#import').setInputFiles({ name: 'offline.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ runs: [record('offline')] })) });
@@ -101,6 +103,73 @@ test('network failure retains local records, online recovery uploads, invalid au
   await page.getByRole('button', { name: '数据备份', exact: true }).click();
   await page.locator('[data-sync]').click();
   await expect(page.locator('.cloud-panel [data-cloud-status]')).toContainText('授权失效');
-  expect(await page.evaluate(() => sessionStorage.getItem('wealth-ssq-github-session'))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('wealth-ssq-github-device'))).toBeNull();
   await expect(page.locator('#authorization-status')).toContainText('未配置');
+});
+
+test('device authorization survives tab closure and browser restart; clearing reaches other tabs', async () => {
+  const root = resolve('test-results');
+  await mkdir(root, { recursive: true });
+  const profile = await mkdtemp(resolve(root, 'auth-profile-'));
+  const launch = () => chromium.launchPersistentContext(profile, { channel: process.env.CI ? 'chromium' : 'msedge', headless: true });
+  let context;
+  let archive = { schemaVersion: 1, runs: [] }, writes = 0;
+  const handler = async route => {
+    if (route.request().method() === 'PUT') {
+      expect(route.request().headers().authorization).toBe('Bearer ' + fixtureToken);
+      archive = JSON.parse(gunzipSync(Buffer.from(route.request().postDataJSON().content, 'base64')).toString());
+      writes++;
+      return route.fulfill({ json: { content: { sha: 'new' } } });
+    }
+    return route.fulfill({ json: { sha: 'current', size: 100, encoding: 'base64', content: gzipSync(JSON.stringify(archive)).toString('base64') } });
+  };
+  const open = async () => {
+    const page = await context.newPage();
+    await page.goto(process.env.SITE_URL || 'http://127.0.0.1:4173');
+    await page.getByRole('button', { name: '数据备份', exact: true }).click();
+    return page;
+  };
+  try {
+    context = await launch();
+    await context.route(pattern, handler);
+    let page = await open();
+    await page.locator('#github-token').fill(fixtureToken);
+    await page.getByRole('button', { name: '记住此设备并同步', exact: true }).click();
+    await expect(page.locator('#authorization-status')).toContainText('已记住');
+    await expect(page.locator('[data-sync]')).toBeEnabled();
+    await page.close();
+    page = await open();
+    await expect(page.locator('#authorization-status')).toContainText('已记住');
+    await context.close();
+    context = await launch();
+    await context.route(pattern, handler);
+    page = await open();
+    await expect(page.locator('#authorization-status')).toContainText('已记住');
+    await expect(page.locator('#github-token')).toHaveValue('');
+    await expect(page.locator('#import')).toBeEnabled();
+    await page.locator('#import').setInputFiles({ name: 'restart.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ runs: [record('after-browser-restart')] })) });
+    await expect(page.locator('.cloud-panel [data-cloud-status]')).toContainText('已同步 1');
+    expect(writes).toBe(1);
+    const other = await open();
+    await expect(other.locator('#authorization-status')).toContainText('已记住');
+    await page.locator('#clear-auth').click();
+    await expect(other.locator('#authorization-status')).toContainText('未配置');
+    await other.reload();
+    await other.getByRole('button', { name: '数据备份', exact: true }).click();
+    await expect(other.locator('#authorization-status')).toContainText('未配置');
+  } finally {
+    await context?.close();
+    if (dirname(profile) !== root || !profile.startsWith(resolve(root, 'auth-profile-'))) throw new Error('Unexpected browser profile cleanup path');
+    await rm(profile, { recursive: true, force: true });
+  }
+});
+
+test('legacy session authorization migrates to this device without entering exported records', async ({ page }) => {
+  await page.addInitScript(value => { sessionStorage.setItem('wealth-ssq-github-session', value); }, fixtureToken);
+  await page.route(pattern, route => route.fulfill({ json: { sha: 'empty', size: 100, encoding: 'base64', content: gzipSync(JSON.stringify({ schemaVersion: 1, runs: [] })).toString('base64') } }));
+  await page.goto('./');
+  await page.getByRole('button', { name: '数据备份', exact: true }).click();
+  await expect(page.locator('#authorization-status')).toContainText('已记住');
+  expect(await page.evaluate(() => Boolean(localStorage.getItem('wealth-ssq-github-device')))).toBe(true);
+  expect(await page.evaluate(() => sessionStorage.getItem('wealth-ssq-github-session'))).toBeNull();
 });
