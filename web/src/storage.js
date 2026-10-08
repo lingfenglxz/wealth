@@ -1,3 +1,4 @@
+import { mergeRuns } from './records.js';
 export const defaultPlan = { singleCount: 0, compoundCount: 1, redCount: 6, blueCount: 3, recentWindow: 500, modelVersion: 'auto' };
 export const emptyState = () => ({ schemaVersion: 2, plan: { ...defaultPlan }, runs: [], evaluations: {} });
 export function validBalls(reds, blues) {
@@ -29,9 +30,7 @@ export function mergeBackup(state, backup) {
   for (const run of imported) {
     if (!run || typeof run.id !== 'string' || !/^\d{7}$/.test(String(run.targetIssue)) || !Number.isFinite(Number(run.createdAt)) || !Array.isArray(run.predictions) || !run.predictions.length || run.predictions.some(p => !validBalls(p.redBalls, p.blueBalls))) throw new Error('备份包含无效推荐，未导入');
   }
-  const runs = new Map(state.runs.map(r => [r.id, r]));
-  for (const run of imported) if (!runs.has(run.id)) runs.set(run.id, run);
-  return { ...state, runs: [...runs.values()].sort((a, b) => Number(b.createdAt) - Number(a.createdAt)) };
+  return { ...state, runs: mergeRuns(state.runs, imported) };
 }
 let database;
 async function db() {
@@ -55,8 +54,16 @@ export async function saveState(state) {
   const connection = await db();
   return new Promise((resolve, reject) => {
     const transaction = connection.transaction('state', 'readwrite');
-    transaction.objectStore('state').put(state, 'app');
-    transaction.oncomplete = resolve;
+    const store = transaction.objectStore('state');
+    let saved;
+    const read = store.get('app');
+    read.onsuccess = () => {
+      try {
+        saved = { ...state, runs: mergeRuns(read.result?.runs || [], state.runs) };
+        store.put(saved, 'app');
+      } catch (error) { reject(error); transaction.abort(); }
+    };
+    transaction.oncomplete = () => resolve(saved);
     transaction.onerror = () => reject(transaction.error);
     transaction.onabort = () => reject(transaction.error || new Error('保存失败'));
   });

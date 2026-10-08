@@ -30,6 +30,12 @@ jobs:
       - name: Fetch and validate official draws
         id: update
         run: python scripts/update_data.py
+      - name: Verify and settle public research archive
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/test_archive.py
+          python scripts/update_archive.py
       - uses: actions/setup-node@v4
         if: github.event_name != 'schedule' || steps.update.outputs.changed == 'true'
         with:

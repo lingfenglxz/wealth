@@ -1,12 +1,16 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-test('recommendation, persistence, backup and mobile layout use only same-origin requests', async ({ page }) => {
+import { gzipSync } from 'node:zlib';
+test.beforeEach(async ({ page }) => {
+  await page.route('https://api.github.com/repos/lingfenglxz/wealth/contents/**', route => route.fulfill({ json: { sha: 'empty', size: 100, encoding: 'base64', content: gzipSync(JSON.stringify({ schemaVersion: 1, runs: [] })).toString('base64') } }));
+});
+test('recommendation, persistence, backup and mobile layout use local runtime and public GitHub sync', async ({ page }) => {
   const errors = [], remote = [], runtimeRequests = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('request', r => {
     if (r.url().includes('/runtime/')) runtimeRequests.push(r.url());
-    if (!r.url().startsWith(new URL(process.env.SITE_URL || 'http://127.0.0.1:4173').origin)) remote.push(r.url());
+    if (!r.url().startsWith(new URL(process.env.SITE_URL || 'http://127.0.0.1:4173').origin) && !r.url().startsWith('https://api.github.com/')) remote.push(r.url());
   });
   await page.goto('./');
   const dataset = await (await page.request.get('./data/ssq.json')).json();

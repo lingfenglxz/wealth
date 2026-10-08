@@ -18,7 +18,11 @@ test('malformed import and invalid plans rejected without partial writes', () =>
   assert.throws(() => validatePlan({ ...emptyState().plan, redCount: 34 }));
   assert.throws(() => validatePlan({ ...emptyState().plan, singleCount: 0, compoundCount: 0 }));
 });
-test('web backup round-trip keeps reports and settlements', () => {
-  const backup = { runs: [{ id: 'a', createdAt: 123, targetIssue: '2026001', predictions: [p], report: { test: true }, settlement: { betCount: 1 } }] };
-  assert.deepEqual(mergeBackup(emptyState(), backup).runs, backup.runs);
+test('web backup round-trip keeps research reports and valid settlements', () => {
+  const settlement = { issue: '2026001', betCount: 1, investedAmount: 2, simulatedPrizeAmount: 0, roi: -1, bestRedHits: 0, tierCounts: { first: 0, second: 0, third: 0, fourth: 0, fifth: 0, sixth: 0 } };
+  const backup = { runs: [{ id: 'a', createdAt: 123, targetIssue: '2026001', predictions: [p], report: { narrative: ['test'] }, settlement }] };
+  const saved = mergeBackup(emptyState(), backup);
+  assert.deepEqual(saved.runs[0].report, backup.runs[0].report);
+  assert.deepEqual(saved.runs[0].settlement, settlement);
+  assert.deepEqual(mergeBackup(emptyState(), JSON.parse(JSON.stringify(saved))), saved);
 });
