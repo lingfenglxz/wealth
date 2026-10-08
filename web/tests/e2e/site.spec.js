@@ -48,6 +48,7 @@ test('legacy backup settles each run and blocks HTML injection', async ({ page }
   const dataset = await (await page.request.get('./data/ssq.json')).json();
   const actual = dataset.draws[0];
   await page.getByRole('button', { name: '数据备份', exact: true }).click();
+  await expect(page.locator('#import')).toBeEnabled({ timeout: 60000 });
   const backup = { predictions: [{ targetIssue: actual.issue, createdAt: Date.now(), modelVersion: 'auto', redBalls: actual.redBalls, blueBalls: [actual.blueBall], note: '<img src=x onerror=alert(1)>' }] };
   await page.locator('#import').setInputFiles({ name: 'android.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) });
   await expect(page.getByRole('status')).toContainText('共 1 次推荐', { timeout: 180000 });
