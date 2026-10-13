@@ -1,92 +1,78 @@
-import ast, concurrent.futures, json, re, time, urllib.request, urllib.error
-from datetime import datetime
-from html.parser import HTMLParser
+import concurrent.futures,json,re,subprocess,os
 from pathlib import Path
-
+from html.parser import HTMLParser
 class Rows(HTMLParser):
-    def __init__(self):
-        super().__init__(); self.rows=[]; self.cells=[]; self.cell=None; self.css=''
-    def handle_starttag(self, tag, attributes):
-        if tag=='tr': self.cells=[]
-        if tag=='td': self.cell=[]; self.css=dict(attributes).get('class','')
-    def handle_data(self, text):
-        if self.cell is not None and text.strip(): self.cell.append(text.strip())
-    def handle_endtag(self, tag):
-        if tag=='td' and self.cell is not None: self.cells.append((' '.join(self.cell),self.css)); self.cell=None
-        if tag=='tr' and self.cells: self.rows.append(self.cells)
-
-def parse(text, kind):
-    if kind=='shanghai':
-        result=[]
-        for item in re.findall(r'employee.push\((\{[^}]+\})\)',text):
-            row=ast.literal_eval(item); reds,blue=row['c'].split('|')
-            result.append(dict(issue=row['id'],date=row['t'][:10],redBalls=list(map(int,reds.split(','))),blueBall=int(blue)))
-        return result
-    if kind=='zhcw':
-        payload=json.loads(text[text.index('(')+1:text.rfind(')')])
-        if payload.get('resCode')!='000000': raise ValueError('Provider rejected query')
-        return [dict(issue=str(r['issue']),date=r['openTime'][:10],redBalls=list(map(int,r['frontWinningNum'].split())),blueBall=int(r['backWinningNum'])) for r in payload['data']]
-    if kind in ('guangdong','sina'):
-        try:
-            value=json.loads(text)
-            if isinstance(value,str): text=value
-        except ValueError: pass
-        table=Rows();table.feed(text);result=[]
-        for row in table.rows:
-            if not row or not re.fullmatch(r'\d{7}',row[0][0]):continue
-            if kind=='guangdong':
-                result.append(dict(issue=row[0][0],redBalls=list(map(int,row[1][0].split())),blueBall=int(row[2][0])))
-            else:
-                winning=[int(value) for value,css in row[1:] if 'chartball' in css and value.isdecimal()]
-                if len(winning)!=7:raise ValueError('Unexpected Sina winning-ball markup')
-                result.append(dict(issue=row[0][0],redBalls=winning[:6],blueBall=winning[6]))
-        return result
-    return []
-
+ def __init__(self):super().__init__();self.rows=[];self.cells=[];self.cell=None
+ def handle_starttag(self,t,a):
+  if t=='tr':self.cells=[]
+  if t=='td':self.cell=[]
+ def handle_data(self,x):
+  if self.cell is not None and x.strip():self.cell.append(x.strip())
+ def handle_endtag(self,t):
+  if t=='td' and self.cell is not None:self.cells.append(' '.join(self.cell));self.cell=None
+  if t=='tr' and self.cells:self.rows.append(self.cells)
 SOURCES=[
-    ('Shanghai welfare lottery','shanghai','https://appsh.swlc.net.cn/shfcoc_datachart/datachart/ssq/lskj/ls_award.html'),
-    ('Guangdong welfare lottery','guangdong','https://www.gdfc.org.cn/lottery/ssq.html'),
-    ('ZHCW public history API','zhcw','https://jc.zhcw.com/port/client_json.php?transactionType=10001001&lotteryId=1&issueCount=30&type=0&pageNum=1&pageSize=30&callback=probe'),
-    ('Sina lottery chart','sina','https://view.lottery.sina.com.cn/lotto/pc_zst/index?lottoType=ssq&actionType=chzs&dpc=1'),
-    ('Lecai downloadable history','lecai','https://data.17500.cn/ssq_asc.txt'),
-    ('Vipc published latest draw','vipc','https://www.vipc.cn/result/ssq/2026116'),
+ ('Tianji ten complete draws','tianji-history','https://www.16788.cn/kaijiang/ssq.html'),
+ ('711 history','711','https://711kj.cc/lottery/SSQ?panel=history'),
+ ('Jiangsu official announcement dates','jiangsu','https://www.jslottery.com/winning_history_a?locale=zh-CN&lottery_type_id=10&page=1&periods='),
+ ('ZHCW via curl','zhcw','https://jc.zhcw.com/port/client_json.php?transactionType=10001001&lotteryId=1&issueCount=30&type=0&pageNum=1&pageSize=30&callback=probe'),
 ]
-
-def probe(source, known):
-    name,kind,url=source;started=time.monotonic();result=dict(source=name,url=url)
-    try:
-        request=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0','Accept':'text/html,application/json,*/*','Referer':url.split('/',3)[0]+'//'+url.split('/',3)[2]+'/'})
-        with urllib.request.urlopen(request,timeout=25) as response:
-            raw=response.read(4*1024*1024);result['httpStatus']=response.status
-        try:text=raw.decode('utf-8')
-        except UnicodeDecodeError:text=raw.decode('gb18030')
-        rows=parse(text,kind);result['rows']=len(rows)
-        if kind in ('lecai','vipc'):
-            result['result']='reachable; format not validated'
-        else:
-            if not rows:raise ValueError('No draw rows')
-            for row in rows:
-                if not re.fullmatch(r'\d{7}',row['issue']) or len(row['redBalls'])!=6 or len(set(row['redBalls']))!=6 or not all(1<=n<=33 for n in row['redBalls']) or not 1<=row['blueBall']<=16:raise ValueError('Invalid draw')
-                if row.get('date'):datetime.strptime(row['date'],'%Y-%m-%d')
-            conflicts=[];overlap=0
-            for row in rows:
-                actual=known.get(row['issue'])
-                if actual:
-                    overlap+=1
-                    if row['redBalls']!=actual['redBalls'] or row['blueBall']!=actual['blueBall'] or (row.get('date') and row['date']!=actual['date']):conflicts.append(row['issue'])
-            result.update(latestIssue=max(row['issue'] for row in rows),historyOverlap=overlap,conflicts=conflicts,completeDates=all(row.get('date') for row in rows))
-            result['result']='validated' if not conflicts and overlap>=10 and result['latestIssue']>=max(known) else 'stale or inconsistent'
-    except urllib.error.HTTPError as error:
-        result.update(httpStatus=error.code,result='unavailable');error.close()
-    except Exception as error:
-        result.update(result='error',error=str(error))
-    result['seconds']=round(time.monotonic()-started,2)
-    return result
-
+def parse(s,kind):
+ if kind=='tianji':
+  issue=re.search(r'开奖期数[^<]*<span[^>]*>\s*第\s*(\d{7})\s*期',s).group(1)
+  date=re.search(r'开奖日期[^<]*<span[^>]*>\s*(\d{4})年(\d{1,2})月(\d{1,2})日',s)
+  reds=list(map(int,re.findall(r'<div class="red-ball">\s*(\d+)\s*</div>',s)));blue=int(re.search(r'<div class="blue-ball">\s*(\d+)',s).group(1))
+  return [dict(issue=issue,date=f'{int(date[1]):04}-{int(date[2]):02}-{int(date[3]):02}',redBalls=reds,blueBall=blue)]
+ if kind=='tianji-chart':
+  result=[]
+  for html in re.findall(r'<tr\b[^>]*>(.*?)</tr>',s,re.S|re.I):
+   issue=re.search(r'<td\s+class="leftth">\s*(\d{7})\s*</td>',html)
+   if not issue:continue
+   reds=list(map(int,re.findall(r'class="zoushiqiu code-red">\s*(\d+)',html)))
+   blue=re.findall(r'class="zoushiqiu code-blue">\s*(\d+)',html)
+   if len(reds)==6 and len(blue)==1:result.append(dict(issue=issue[1],redBalls=reds,blueBall=int(blue[0])))
+  return result
+ if kind=='711':
+  p=Rows();p.feed(s);result={}
+  for row in p.rows:
+   if len(row)>=4 and re.fullmatch(r'\d{7}',row[1]):
+    balls=list(map(int,row[2].split()))
+    if len(balls)==7:result[row[1]]=dict(issue=row[1],redBalls=balls[:6],blueBall=balls[6],date=row[3][:10].replace('/','-'))
+  return list(result.values())
+ if kind=='jiangsu':
+  pairs=re.findall(r'<a[^>]+>[^<]*?(\d{7})[^<]*?</a>\s*<span[^>]+>(\d{4}-\d{2}-\d{2})',s,re.S)
+  return [dict(issue=i,date=d) for i,d in pairs]
+ if kind=='zhcw':
+  d=json.loads(s if s.lstrip().startswith('{') else s[s.index('(')+1:s.rfind(')')]);return [dict(issue=str(r['issue']),date=r['openTime'][:10],redBalls=list(map(int,r['frontWinningNum'].split())),blueBall=int(r['backWinningNum'])) for r in d['data']]
+ return []
+def download(url):
+ binary='curl.exe' if os.name=='nt' else 'curl'
+ response=subprocess.run([binary,'--location','--silent','--show-error','--fail-with-body','--connect-timeout','8','--max-time','20','--user-agent','Mozilla/5.0',url],capture_output=True,timeout=25)
+ if response.returncode:raise RuntimeError(response.stderr.decode('utf-8',errors='replace').strip())
+ try:return response.stdout.decode('utf-8')
+ except UnicodeDecodeError:return response.stdout.decode('gb18030')
+def probe(item,known):
+ name,kind,url=item;result=dict(source=name,url=url)
+ try:
+  s=download(url)
+  if kind=='tianji-history':
+   paths=list(dict.fromkeys(re.findall(r'<option\s+value="(/kaijiang/ssq/\d{7}\.html)"',s)))[:10]
+   with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+    pages=list(pool.map(lambda path:download('https://www.16788.cn'+path),paths))
+   rows=[row for page in pages for row in parse(page,'tianji')]
+  else:rows=parse(s,kind)
+  if not rows:raise ValueError('No usable draw rows')
+  overlap=0;conflicts=[]
+  for row in rows:
+   actual=known.get(row['issue'])
+   if actual:
+    overlap+=1
+    if any(row.get(k)!=actual[k] for k in ['redBalls','blueBall','date'] if k in row):conflicts.append(row['issue'])
+  result.update(httpStatus=200,rows=len(rows),latestIssue=max(r['issue'] for r in rows),historyOverlap=overlap,conflicts=conflicts,completeDates=all('date' in r for r in rows),hasNumbers=all('redBalls' in r for r in rows))
+  result['result']='consistent' if not conflicts and overlap else 'unverified'
+ except Exception as error:result.update(result='error',error=str(error))
+ return result
 if __name__=='__main__':
-    published=json.loads(Path('web/public/data/ssq.json').read_text(encoding='utf-8'))
-    known={draw['issue']:draw for draw in published['draws']}
-    print('Read-only probe baseline issue: '+published['latestIssue'],flush=True)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
-        results=list(pool.map(lambda source:probe(source,known),SOURCES))
-    for result in results:print(json.dumps(result,ensure_ascii=True),flush=True)
+ data=json.loads(Path('web/public/data/ssq.json').read_text(encoding='utf-8'));known={d['issue']:d for d in data['draws']}
+ with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:results=list(pool.map(lambda item:probe(item,known),SOURCES))
+ for result in results:print(json.dumps(result,ensure_ascii=True),flush=True)
