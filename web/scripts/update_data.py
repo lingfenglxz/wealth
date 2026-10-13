@@ -1,11 +1,13 @@
 """Fail closed on invalid/unreachable CWL data. Public data only; no user state."""
 import importlib.util
+import http.client
 import json
 import os
 import re
 import sys
 import time
 import urllib.request
+import urllib.error
 import urllib.parse
 import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
@@ -48,6 +50,10 @@ def fetch_page(page):
                     for row in payload['result']]
         except Exception as caught:
             error = caught
+            if isinstance(caught, urllib.error.HTTPError):
+                caught.close()
+                if caught.code not in (408, 429, 500, 502, 503, 504):
+                    break
             if attempt < 3:
                 time.sleep(2 ** attempt)
     raise RuntimeError(f'CWL page {page} failed: {error}')
@@ -84,12 +90,27 @@ class HistoryParser(HTMLParser):
             self.rows.append(validate(dict(issue='20' + self.cells[0], date=self.cells[-1],
                 redBalls=[int(n) for n in self.cells[1:7]], blueBall=int(self.cells[7]))))
 
+def download_backup(url):
+    request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.500.com/'})
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(request, timeout=45) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            error.close()
+            if error.code not in (408, 429, 500, 502, 503, 504) or attempt == 3:
+                raise
+            reason = f'HTTP {error.code}'
+        except (OSError, http.client.HTTPException) as error:
+            if attempt == 3:
+                raise
+            reason = str(error)
+        delay = 2 ** attempt
+        print(f'Backup source temporary connection failure ({reason}); retry {attempt + 2}/4 in {delay}s', flush=True)
+        time.sleep(delay)
+
 def fetch_backup():
-    def download(url):
-        request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.500.com/'})
-        with urllib.request.urlopen(request, timeout=45) as response:
-            return response.read()
-    raw = download(HISTORY_URL)
+    raw = download_backup(HISTORY_URL)
     try:
         text = raw.decode('utf-8')
     except UnicodeDecodeError:
@@ -101,7 +122,7 @@ def fetch_backup():
         raise ValueError('Backup history returned no draws')
     index = {row['issue']: row for row in rows}
     xml_rows = []
-    for row in ET.fromstring(download(XML_URL)).findall('row'):
+    for row in ET.fromstring(download_backup(XML_URL)).findall('row'):
         reds, blue = row.attrib['opencode'].split('|')
         draw = validate(dict(issue='20' + row.attrib['expect'], date=row.attrib['opentime'][:10],
                              redBalls=[int(n) for n in reds.split(',')], blueBall=int(blue)))
